@@ -215,8 +215,14 @@ void set_blocking (int fd, int should_block){
 
 
 void print_help(){
-	printf("HELP");
-	exit(0);
+	printf("\n oled4linux: Send monitorization info to an external oled screen via serial\n");
+		printf("\n OPTIONS:\n");
+		printf("\t -h \tPrint this help\n");
+		printf("\t -v \tShow info on stdout\n");
+		printf("\t -i [IF]\tSpecify an interface to show its IP\n");
+		printf("\t -t [TIME]\tSend time.\n");
+		printf("\t -s [SERIAL_PATH]\tSpecify a serial port to send the data\n");
+	exit(1);
 }
 
 int main(int argc, char *argv[]){
