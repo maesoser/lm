@@ -20,7 +20,8 @@
 #include <fcntl.h>
 #include <termios.h>
 
-#define DEFAULT_DELAY 150
+#define DEFAULT_DELAY 5
+#define SERIAL_SPEED B115200
 
 typedef struct{
     uint32_t total;
@@ -53,7 +54,7 @@ typedef struct{
 	uint8_t month;
 	uint8_t year; // till 2255
 
-	double load[3];
+	uint16_t load[3];
 	uint8_t ip[4];
 }serial_pkt;	//64 bytes
 
@@ -255,7 +256,7 @@ int main(int argc, char *argv[]){
 			serial = 0;
 		}
 
-		set_interface_attribs (fd, B115200, 0);  // set speed to 115,200 bps, 8n1 (no parity)
+		set_interface_attribs (fd, SERIAL_SPEED, 0);  // set speed to 115,200 bps, 8n1 (no parity)
 		set_blocking (fd, 0);                // set no blocking
 	}
 
@@ -269,9 +270,9 @@ int main(int argc, char *argv[]){
 		ram_t raminfo = get_ram();
 		uptime_t upt = get_uptime();
 		if (getloadavg(load, 3) == -1){
-			load[0] = -1;
-			load[1] = -1;
-			load[2] = -1;
+			load[0] = 0;
+			load[1] = 0;
+			load[2] = 0;
 		}
 		time(&rawtime);
 		timeinfo = localtime(&rawtime);
@@ -295,9 +296,9 @@ int main(int argc, char *argv[]){
 			serialbuff.upt_hours = upt.hours;
 			serialbuff.upt_mins = upt.mins;
 			serialbuff.upt_secs = upt.secs;
-			serialbuff.load[0] = load[0];
-			serialbuff.load[1] = load[1];
-			serialbuff.load[2] = load[2];
+			serialbuff.load[0] = load[0]*100;
+			serialbuff.load[1] = load[1]*100;
+			serialbuff.load[2] = load[2]*100;
 			serialbuff.sec = timeinfo->tm_sec;
 			serialbuff.min = timeinfo->tm_min;
 			serialbuff.hour = timeinfo->tm_hour;

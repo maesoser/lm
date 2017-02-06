@@ -31,7 +31,7 @@ typedef struct{
   uint8_t month;
   uint8_t year;
   
-  float load[3]; 
+  uint16_t load[3]; 
   uint8_t ip[4];
 }serial_pkt;
 
