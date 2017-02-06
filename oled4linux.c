@@ -139,17 +139,21 @@ uptime_t get_uptime(){
 struct in_addr get_addr(char *dev){
 	int fd;
 	struct ifreq ifr;
+	int out = 0;
 
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	ifr.ifr_addr.sa_family = AF_INET;
 
 	/* I want IP address attached to "eth0" */
 	strncpy(ifr.ifr_name, dev, IFNAMSIZ-1);
-	ioctl(fd, SIOCGIFADDR, &ifr);
+	out = ioctl(fd, SIOCGIFADDR, &ifr);
 	close(fd);
 	/* display result */
 	//printf("%s\n", inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
-
+	if(out<0){
+		struct in_addr addr = { 0 };
+		return addr;
+	}
 	return ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
 }
 
@@ -218,6 +222,7 @@ int main(int argc, char *argv[]){
 	unsigned int laptime = DEFAULT_DELAY;
 	uint8_t verbose = 0;
 	uint8_t serial = 0;
+	uint8_t net = 0;
 	int opt;
 	char *dev;
 	char *serialpath;
@@ -239,6 +244,7 @@ int main(int argc, char *argv[]){
 				break;
 			case 'i':
 				dev = optarg;
+				net = 1;
 				break;
 		}
 	}
@@ -267,9 +273,11 @@ int main(int argc, char *argv[]){
 			load[1] = -1;
 			load[2] = -1;
 		}
-		time(&rawtime );
-		timeinfo = localtime ( &rawtime );
-		struct in_addr addr = get_addr(dev);
+		time(&rawtime);
+		timeinfo = localtime(&rawtime);
+		struct in_addr addr = { 0 };
+		
+		if(net) addr = get_addr(dev);
 
 		if(verbose){
 			printf("%d-%d-%d ",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
