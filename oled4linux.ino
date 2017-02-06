@@ -82,11 +82,11 @@ void loop() {
     display.setCursor(100,0);
     display.println("MB");
     display.setCursor(1,8);
-    display.println(recvpkt.load[0],2);
+    display.println(recvpkt.load[0]/100,2);
     display.setCursor(40,8);
-    display.println(recvpkt.load[1],2);
+    display.println(recvpkt.load[1]/100,2);
     display.setCursor(80,8);
-    display.println(recvpkt.load[2],2);
+    display.println(recvpkt.load[2]/100,2);
     display.setTextSize(2);
     display.setCursor(1,16);
     display.println(recvpkt.h);
