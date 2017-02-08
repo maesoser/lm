@@ -44,7 +44,8 @@ void setup()   {
   // by default, we'll generate the high voltage from the 3.3v line internally! (neat!)
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize with the I2C addr 0x3D (for the 128x64)
   // init done
-
+  display.ssd1306_command(SSD1306_SETCONTRAST);
+  display.ssd1306_command(0x01);
   // Show image buffer on the display hardware.
   // Since the buffer is intialized with an Adafruit splashscreen
   // internally, this will display the splashscreen.
@@ -78,7 +79,7 @@ void loop() {
 
     //RAM
     display.setTextSize(1);
-    display.setCursor(0,0);
+    display.setCursor(1,0);
     display.println("RAM");
     display.setCursor(32,0);
     display.println(recvpkt.rfree);
@@ -88,7 +89,7 @@ void loop() {
     display.println("MB");
 
     // LOAD
-    display.setCursor(0,8);
+    display.setCursor(1,8);
     display.println("LOAD");
     display.setCursor(36,8);
     display.println(recvpkt.load[0]/100.0);
@@ -99,19 +100,19 @@ void loop() {
 
     // TIME
     display.setTextSize(3);
-    display.setCursor(0,20);
+    display.setCursor(2,20);
     display.println(recvpkt.h);
-    display.setCursor(30,20);
+    display.setCursor(32,20);
     display.println(":");
-    display.setCursor(42,20);
+    display.setCursor(44,20);
     display.println(recvpkt.m);
-    display.setCursor(72,20);
+    display.setCursor(74,20);
     display.println(":");
-    display.setCursor(88,20);
+    display.setCursor(90,20);
     display.println(recvpkt.s);
 
     display.setTextSize(1);
-    display.setCursor(0,46);
+    display.setCursor(1,46);
     display.println("ADDR");
     display.setCursor(40,46);
     display.println(recvpkt.ip[0]);
@@ -123,7 +124,7 @@ void loop() {
     display.println(recvpkt.ip[3]);
     
     //UPTIME
-    display.setCursor(0,56);
+    display.setCursor(1,56);
     display.println(recvpkt.upt_days);
     display.setCursor(18,56);
     display.println(recvpkt.upt_hours);
