@@ -1,5 +1,5 @@
 build:
-	gcc -Wall oled4linux.c -o oled4linux
+	gcc -Wall oled4linux.c -o o4l
 
 clean:
-	rm oled4linux
+	rm o4l

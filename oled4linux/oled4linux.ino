@@ -18,37 +18,39 @@ Adafruit_SSD1306 display(OLED_RESET);
 typedef struct{
   uint32_t rtotal;
   uint32_t rfree;
-  
+
   uint32_t upt_days;
   uint32_t upt_hours;
   uint32_t upt_mins;
   uint32_t upt_secs;
-  
+
   uint8_t s;
   uint8_t m;
   uint8_t h;
   uint8_t day;
   uint8_t month;
   uint8_t year;
-  
-  uint16_t load[3]; 
+
+  uint16_t load[3];
   uint8_t ip[4];
 }serial_pkt;
 
 serial_pkt recvpkt;
 boolean dcolor = false;
-void setup()   {                
+
+void setup()   {
   Serial.begin(115200);
 
   // by default, we'll generate the high voltage from the 3.3v line internally! (neat!)
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize with the I2C addr 0x3D (for the 128x64)
   // init done
-  
+
   // Show image buffer on the display hardware.
   // Since the buffer is intialized with an Adafruit splashscreen
   // internally, this will display the splashscreen.
   display.invertDisplay(false);
   display.display();
+  display.setTextColor(WHITE);
   display.clearDisplay();
 
   for (int16_t i=0; i<min(display.width(),display.height())/2; i+=5) {
@@ -66,14 +68,17 @@ boolean flip(boolean b){
 }
 
 void loop() {
-  
-  if (Serial.available() == 64) {
-    Serial.readBytes((char*)&recvpkt, 64);
+
+  if (Serial.available() == sizeof(serial_pkt)) {
+    Serial.readBytes((char*)&recvpkt, sizeof(serial_pkt));
     display.clearDisplay();
-    display.setTextColor(WHITE);
-    display.setCursor(0,0);
+    if(dcolor) dcolor=false;
+    else dcolor=true;
+    display.invertDisplay(dcolor);
+
+    //RAM
     display.setTextSize(1);
-    
+    display.setCursor(0,0);
     display.println("RAM");
     display.setCursor(32,0);
     display.println(recvpkt.rfree);
@@ -81,40 +86,57 @@ void loop() {
     display.println(recvpkt.rtotal);
     display.setCursor(100,0);
     display.println("MB");
-    display.setCursor(1,8);
-    display.println(recvpkt.load[0]/100,2);
-    display.setCursor(40,8);
-    display.println(recvpkt.load[1]/100,2);
-    display.setCursor(80,8);
-    display.println(recvpkt.load[2]/100,2);
-    display.setTextSize(2);
-    display.setCursor(1,16);
+
+    // LOAD
+    display.setCursor(0,8);
+    display.println("LOAD");
+    display.setCursor(36,8);
+    display.println(recvpkt.load[0]/100.0);
+    display.setCursor(70,8);
+    display.println(recvpkt.load[1]/100.0);
+    display.setCursor(100,8);
+    display.println(recvpkt.load[2]/100.0);
+
+    // TIME
+    display.setTextSize(3);
+    display.setCursor(0,20);
     display.println(recvpkt.h);
-    display.setCursor(16,16);
+    display.setCursor(30,20);
     display.println(":");
-    display.setCursor(24,16);
+    display.setCursor(42,20);
     display.println(recvpkt.m);
-    display.setCursor(48,16);
+    display.setCursor(72,20);
     display.println(":");
-    display.setCursor(56,16);
+    display.setCursor(88,20);
     display.println(recvpkt.s);
+
     display.setTextSize(1);
-    display.setCursor(1,32);
+    display.setCursor(0,46);
+    display.println("ADDR");
+    display.setCursor(40,46);
+    display.println(recvpkt.ip[0]);
+    display.setCursor(64,46);
+    display.println(recvpkt.ip[1]);
+    display.setCursor(88,46);
+    display.println(recvpkt.ip[2]);
+    display.setCursor(110,46);
+    display.println(recvpkt.ip[3]);
+    
+    //UPTIME
+    display.setCursor(0,56);
     display.println(recvpkt.upt_days);
-    display.setCursor(18,32);
+    display.setCursor(18,56);
     display.println(recvpkt.upt_hours);
-    display.setCursor(36,32);
+    display.setCursor(36,56);
     display.println(recvpkt.upt_mins);
-    display.setCursor(54,32);
+    display.setCursor(54,56);
     display.println(recvpkt.upt_secs);
-    display.setCursor(74,32);
+    display.setCursor(74,56);
     display.println("D H M S");
 
     display.display();
 
   }
-        
+
     // Clear the buffer.
 }
-
-

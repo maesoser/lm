@@ -46,7 +46,7 @@ typedef struct{
 	uint32_t upt_hours;
 	uint32_t upt_mins;
 	uint32_t upt_secs;
-	
+
 	uint8_t sec;
 	uint8_t min;
 	uint8_t hour;
@@ -95,6 +95,12 @@ ram_t get_ram(){
 	return raminfo;
 }
 
+uint8_t * in_addr_int_arr(struct in_addr ipadrr){
+	static uint8_t iparr[4] = {0};
+	char *ipstr = inet_ntoa(ipadrr);
+	sscanf(ipstr, "%d.%d.%d.%d", &iparr[0], &iparr[1], &iparr[2], &iparr[3]);
+	return iparr;
+}
 uptime_t get_uptime(){
 	uptime_t upt;
 
@@ -283,7 +289,7 @@ int main(int argc, char *argv[]){
 		time(&rawtime);
 		timeinfo = localtime(&rawtime);
 		struct in_addr addr = { 0 };
-		
+
 		if(net) addr = get_addr(dev);
 
 		if(verbose){
@@ -292,7 +298,9 @@ int main(int argc, char *argv[]){
 			printf("%d days %d hrs %d mins %d secs\t",upt.days, upt.hours, upt.mins, upt.secs);
 			printf("RAM %d/%d MB\t",raminfo.used/1024,raminfo.total/1024);
 			printf("LOAD %0.2f %0.2f %0.2f\t",load[0],load[1],load[2]);
-			printf("%s\n",inet_ntoa(addr));
+			printf("%s\t",inet_ntoa(addr));
+			printf("%lu\n",sizeof(serial_pkt));
+
 		}
 		if(serial){
 			serial_pkt serialbuff;
@@ -311,10 +319,11 @@ int main(int argc, char *argv[]){
 			serialbuff.day = timeinfo->tm_mday;
 			serialbuff.month = timeinfo->tm_mon + 1;
 			serialbuff.year = timeinfo->tm_year - 100;
-			serialbuff.ip[0] = 0;
-			serialbuff.ip[1] = 1;
-			serialbuff.ip[2] = 2;
-			serialbuff.ip[3] = 3;
+			uint8_t *iparr = in_addr_int_arr(addr);
+			serialbuff.ip[0] = iparr[0];
+			serialbuff.ip[1] = iparr[1];
+			serialbuff.ip[2] = iparr[2];
+			serialbuff.ip[3] = iparr[3];
 			write (fd, &serialbuff, sizeof(serial_pkt));           // send 7 character greeting
 			//usleep ((7 + 25) * 100);             // sleep enough to transmit the 7 plus
 			// receive 25:  approx 100 uS per char transmit
