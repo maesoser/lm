@@ -31,6 +31,6 @@ oled4linux -v -t 5 -i eth0 -s /dev/ttyACM0
 
 ### Some (shitty) photos
 
-![photo1.jpg](photo_black)
+![photo_black]https://raw.githubusercontent.com/maesoser/oled4linux/master/photo1.jpg)
 
-![photo2.jpg](photo_white)
+![photo_white](https://raw.githubusercontent.com/maesoser/oled4linux/master/photo2.jpg)
