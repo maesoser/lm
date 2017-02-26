@@ -28,3 +28,9 @@ oled4linux -v -t 5 -i eth0 -s /dev/ttyACM0
 ### Bibliography
 
 [htop explained](https://peteris.rocks/blog/htop/)
+
+### Some (shitty) photos
+
+![photo1.jpg](photo_black)
+
+![photo2.jpg](photo_white)
