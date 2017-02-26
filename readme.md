@@ -1,6 +1,6 @@
 # oled4linux
 
-Tiny proyect to make an status display with a [0.96 i2c OLED display](https://es.aliexpress.com/item/0-96-Inch-Yellow-and-Blue-I2C-IIC-Serial-128X64-OLED-LCD-LED-Display-Module-for/2053302733.html?isOrigTitle=true) and an [Arduino Pro Micro](https://www.sparkfun.com/products/12640). I used [this 3D model](http://www.thingiverse.com/thing:857858) as enclosure.
+Tiny project to make an status display with a [0.96 i2c OLED display](https://es.aliexpress.com/item/0-96-Inch-Yellow-and-Blue-I2C-IIC-Serial-128X64-OLED-LCD-LED-Display-Module-for/2053302733.html?isOrigTitle=true) and an [Arduino Pro Micro](https://www.sparkfun.com/products/12640). I used [this 3D model](http://www.thingiverse.com/thing:857858) as enclosure.
 
 ![Image of the enclosure](http://thingiverse-production-new.s3.amazonaws.com/renders/ea/08/2f/a4/26/CSC_2699_preview_featured.JPG)
 ### Installation
