@@ -112,6 +112,7 @@ void cpu_bar(int cores, uint32_t *full,uint32_t *idle,uint32_t *lastfull,uint32_
 
 uint32_t get_cpu(uint32_t *cpufull,uint32_t *cpuidle);
 float get_temp();
+float get_h3temp();
 void gettxrx(char *dev, txrx_t *if1);
 struct in_addr get_addr(char *dev);
 uptime_t get_uptime();

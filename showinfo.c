@@ -109,7 +109,9 @@ void ip_bar(char *dev, char*dev2,struct in_addr addr,struct in_addr addr2,int if
 
 void status_bar(double *load,uint32_t cols){
 	printf(ANSI_COLOR_BOLD" LOAD"ANSI_COLOR_RESET" %0.2f %0.2f %0.2f",load[0],load[1],load[2]);
-	int temp = get_temp();
+	int temp = 0;
+	temp = get_temp();
+	if (temp<1) temp = get_h3temp();
 	cols = cols - 29 - ndigits(temp);
 	empty(cols);
 	printf(ANSI_COLOR_BOLD "TEMP"ANSI_COLOR_RESET" %d ºC\n",temp);

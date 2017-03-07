@@ -1,5 +1,6 @@
 #include "oled4linux.h"
 
+
 uint32_t get_cpu(uint32_t *cpufull,uint32_t *cpuidle){
 	// /proc/stat
 	 FILE *cpuinfo = fopen("/proc/stat", "r");
@@ -60,6 +61,15 @@ float get_temp(){
 	return cpu_temp;
 }
 
+float get_h3temp(){
+        FILE *fp;
+        int temp = 0;
+        fp = fopen("/etc/armbianmonitor/datasources/soctemp", "r");
+        if(fp==NULL) return -1;
+        fscanf(fp, "%d", &temp);
+        fclose(fp);
+        return (float)temp;
+}
 void gettxrx(char *dev, txrx_t *if1){
 	 FILE *netinfo = fopen("/proc/net/dev", "r");
 	 if(netinfo == NULL){
