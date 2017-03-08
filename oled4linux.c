@@ -20,8 +20,22 @@
 #include <fcntl.h>
 #include <termios.h>
 
+
 #define DEFAULT_DELAY 5
 #define SERIAL_SPEED B115200
+#define DEFAULT_PORT 7
+
+#define OUTPUT_CONSOLE 0
+#define OUTPUT_SERIAL 1
+#define OUTPUT_NETWORK 2
+
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET "\x1b[0m"
 
 typedef struct{
     uint32_t total;
@@ -95,7 +109,7 @@ ram_t get_ram(){
 	return raminfo;
 }
 
-uint8_t * in_addr_int_arr(struct in_addr ipadrr){
+uint8_t * addr2arr(struct in_addr ipadrr){
 	static uint8_t iparr[4] = {0};
 	char *ipstr = inet_ntoa(ipadrr);
 	sscanf(ipstr, "%d.%d.%d.%d", &iparr[0], &iparr[1], &iparr[2], &iparr[3]);
@@ -164,7 +178,10 @@ struct in_addr get_addr(char *dev){
 	return ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
 }
 
-int set_interface_attribs (int fd, int speed, int parity){
+void clearscr(){
+	printf("\e[1;1H\e[2J");
+}
+int config_serial (int fd, int speed, int parity){
         struct termios tty;
         memset (&tty, 0, sizeof tty);
         if (tcgetattr (fd, &tty) != 0)
@@ -228,22 +245,27 @@ void print_help(){
 		printf("\t -i [IF]\tSpecify an interface to show its IP\n");
 		printf("\t -t [TIME]\tSend time.\n");
 		printf("\t -s [SERIAL_PATH]\tSpecify a serial port to send the data\n");
+		printf("\t -n [port]\tSend data using udp packets to the specified port.\n");
+		printf("\t -c \tShow the data using ncurses style\n");
+
+
 	exit(1);
 }
 
 int main(int argc, char *argv[]){
 	unsigned int laptime = DEFAULT_DELAY;
 	uint8_t verbose = 0;
-	uint8_t serial = 0;
 	uint8_t net = 0;
+	uint8_t outopt = 0;
+	uint32_t port = DEFAULT_PORT;
 	int opt;
 	char *dev;
 	char *serialpath;
 	int fd;
-	while ((opt = getopt(argc, argv, "s:i:t:hv")) != -1) {
+	while ((opt = getopt(argc, argv, "s:i:t:n:hvc")) != -1) {
 		switch(opt) {
 			case 's':
-				serial = 1;
+				outopt = OUTPUT_SERIAL;
 				serialpath = optarg;
 				break;
 			case 't':
@@ -259,50 +281,61 @@ int main(int argc, char *argv[]){
 				dev = optarg;
 				net = 1;
 				break;
+			case 'n':
+				outopt= OUTPUT_NETWORK;
+				port = atoi(optarg);
+			case 'c':
+				outopt = OUTPUT_CONSOLE;
 		}
 	}
-	if(serial){
+	if(outopt == OUTPUT_SERIAL){
 		fd = open (serialpath, O_RDWR | O_NOCTTY | O_SYNC);
 		if (fd < 0){
 			perror("error opening serial conn");
-			serial = 0;
+			outopt = OUTPUT_CONSOLE;
 		}
 
-		set_interface_attribs (fd, SERIAL_SPEED, 0);  // set speed to 115,200 bps, 8n1 (no parity)
+		config_serial (fd, SERIAL_SPEED, 0);  // set speed to 115,200 bps, 8n1 (no parity)
 		set_blocking (fd, 0);                // set no blocking
+	}
+	if (outopt == OUTPUT_NETWORK){
+		
 	}
 
 	//char buf [100];
 	//int n = read (fd, buf, sizeof buf);  // read up to 100 characters if ready to read
 	while(1){
-		double load[3];
-		time_t rawtime;
-		struct tm * timeinfo;
 
 		ram_t raminfo = get_ram();
 		uptime_t upt = get_uptime();
+		
+		double load[3];
 		if (getloadavg(load, 3) == -1){
 			load[0] = 0;
 			load[1] = 0;
 			load[2] = 0;
 		}
+		
+		time_t rawtime;
+		struct tm * timeinfo;
 		time(&rawtime);
 		timeinfo = localtime(&rawtime);
+		
 		struct in_addr addr = { 0 };
 
 		if(net) addr = get_addr(dev);
 
 		if(verbose){
-			printf("%d-%d-%d ",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
-			printf("%d:%d:%d\t", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-			printf("%d days %d hrs %d mins %d secs\t",upt.days, upt.hours, upt.mins, upt.secs);
+			printf("%02d-%02d-%04d ",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
+			printf("%02d:%02d:%02d\t", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+			printf("%d days %02d hrs %02d mins %02d secs\t",upt.days, upt.hours, upt.mins, upt.secs);
 			printf("RAM %d/%d MB\t",raminfo.used/1024,raminfo.total/1024);
 			printf("LOAD %0.2f %0.2f %0.2f\t",load[0],load[1],load[2]);
 			printf("%s\t",inet_ntoa(addr));
 			printf("%lu\n",sizeof(serial_pkt));
 
 		}
-		if(serial){
+		if(outopt == OUTPUT_SERIAL){
 			serial_pkt serialbuff;
 			serialbuff.ramtotal = raminfo.total/1024;
 			serialbuff.ramfree = raminfo.used/1024;
@@ -319,14 +352,34 @@ int main(int argc, char *argv[]){
 			serialbuff.day = timeinfo->tm_mday;
 			serialbuff.month = timeinfo->tm_mon + 1;
 			serialbuff.year = timeinfo->tm_year - 100;
-			uint8_t *iparr = in_addr_int_arr(addr);
+			uint8_t *iparr = addr2arr(addr);
 			serialbuff.ip[0] = iparr[0];
 			serialbuff.ip[1] = iparr[1];
 			serialbuff.ip[2] = iparr[2];
 			serialbuff.ip[3] = iparr[3];
-			write (fd, &serialbuff, sizeof(serial_pkt));           // send 7 character greeting
-			//usleep ((7 + 25) * 100);             // sleep enough to transmit the 7 plus
+			write (fd, &serialbuff, sizeof(serial_pkt));
+			//usleep ((7 + 25) * 100);             
 			// receive 25:  approx 100 uS per char transmit
+		}
+		if(outopt == OUTPUT_NETWORK){
+			
+		}
+		if(outopt == OUTPUT_CONSOLE){
+			struct winsize w;
+			ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+			// printf("%05d", zipCode);
+			//printf ("lines %d columns %d\n", w.ws_row,  w.ws_col);
+			 
+		//printf("\x1b[2J\x1b[H");
+		//printf("\033[2J");
+		system("clear");
+ 		printf("%02d-%02d-%04d",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
+			printf("  %02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+			printf("  %d days %02d hrs %02d mins %02d secs \n",upt.days, upt.hours, upt.mins, upt.secs);
+			printf("asfgasdga");
+			printf("RAM %d/%d MB\t",raminfo.used/1024,raminfo.total/1024);
+			printf("LOAD %0.2f %0.2f %0.2f\t",load[0],load[1],load[2]);
+			printf("%s\t",inet_ntoa(addr));			
 		}
 		sleep(laptime);
 	}
