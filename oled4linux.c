@@ -37,6 +37,14 @@
 #define ANSI_COLOR_CYAN    "\x1b[36m"
 #define ANSI_COLOR_RESET "\x1b[0m"
 
+#define ANSI_COLOR_HEADER  "\033[95m"
+#define ANSI_COLOR_OKBLUE  "\033[94m"
+#define ANSI_COLOR_OKGREEN  "\033[92m"
+#define ANSI_COLOR_WARNING  "\033[93m"
+#define ANSI_COLOR_FAIL  "\033[91m"
+#define ANSI_COLOR_BOLD  "\033[1m"
+#define ANSI_COLOR_UNDERLINE  "\033[4m"
+
 typedef struct{
     uint32_t total;
     uint32_t cached;
@@ -251,7 +259,82 @@ void print_help(){
 
 	exit(1);
 }
+uint8_t ndigits(int n){
+		uint8_t count = 0;
+    while(n != 0)
+    {
+        // n = n/10
+        n /= 10;
+        ++count;
+    }
+		return count;
+}
 
+float get_temp(){
+	FILE *fp;
+	char buff[5];
+	float cpu_temp = 0;
+	fp = fopen("/sys/class/thermal/thermal_zone0/temp", "r");
+	if(fp==NULL) return -1;
+	fscanf(fp, "%s", buff);
+	cpu_temp = (float)atoi(buff)/1000;
+	fclose(fp);
+	return cpu_temp;
+}
+
+void get_cpu(){
+	// /proc/stat
+	 FILE *cpuinfo = fopen("/proc/stat", "r");
+	 if(cpuinfo == NULL){
+		 exit(-1);
+	 }
+	 char buff[256];
+	 uint32_t cputime[64];
+	 uint32_t cores = 0;
+	 while(fgets(buff, sizeof(buff), cpuinfo)){
+		//char *c = strchr(buff, '\n');
+		//if (c) *c = '\0';
+		 uint32_t val[10];
+		 uint32_t cpuid;
+			 if(sscanf(buff, "cpu%d	%d	%d	%d	%d	%d	%d	%d	%d	%d	%d",
+			 &cpuid,&val[0],&val[1],&val[2],&val[3],&val[4],&val[5],&val[6],&val[7],&val[8],&val[9]) == 1){
+					 cputime[cores] = val[0]+val[1]+val[2]+val[3]+val[4]+val[5]+val[6]+val[7]+val[8]+val[9];
+					 cores = cores + 1;
+					 val[0] = 0;
+					 val[1] = 0;
+					 val[2] = 0;
+					 val[3] = 0;
+					 val[4] = 0;
+					 val[5] = 0;
+					 val[6] = 0;
+					 val[7] = 0;
+					 val[8] = 0;
+					 val[9] = 0;
+			 	}
+
+	 }
+	 printf("%d cores",cores);
+	 if(fclose(cpuinfo) != 0){
+		 exit(-1);
+	 }
+}
+void ram_bar(ram_t ram, uint32_t cols){
+	printf(" RAM ");
+	printf(ANSI_COLOR_BOLD "["ANSI_COLOR_RESET);
+	int i = 0;
+	int ldigits = ndigits(ram.total/1024) + ndigits(ram.used/1024);
+	float usedr = (cols-6)*(ram.used/ram.total);
+	float freer = cols - usedr -8 - ldigits;
+	for(i=0; i < usedr; i++){
+		printf("|");
+	}
+	for(i=0; i < freer; i++){
+		printf(" ");
+	}
+	printf("%d/%d",ram.used/1024,ram.total/1024);
+	printf(ANSI_COLOR_BOLD "]"ANSI_COLOR_RESET);
+	printf("\n");
+}
 int main(int argc, char *argv[]){
 	unsigned int laptime = DEFAULT_DELAY;
 	uint8_t verbose = 0;
@@ -299,7 +382,7 @@ int main(int argc, char *argv[]){
 		set_blocking (fd, 0);                // set no blocking
 	}
 	if (outopt == OUTPUT_NETWORK){
-		
+
 	}
 
 	//char buf [100];
@@ -308,19 +391,19 @@ int main(int argc, char *argv[]){
 
 		ram_t raminfo = get_ram();
 		uptime_t upt = get_uptime();
-		
+
 		double load[3];
 		if (getloadavg(load, 3) == -1){
 			load[0] = 0;
 			load[1] = 0;
 			load[2] = 0;
 		}
-		
+
 		time_t rawtime;
 		struct tm * timeinfo;
 		time(&rawtime);
 		timeinfo = localtime(&rawtime);
-		
+
 		struct in_addr addr = { 0 };
 
 		if(net) addr = get_addr(dev);
@@ -358,28 +441,31 @@ int main(int argc, char *argv[]){
 			serialbuff.ip[2] = iparr[2];
 			serialbuff.ip[3] = iparr[3];
 			write (fd, &serialbuff, sizeof(serial_pkt));
-			//usleep ((7 + 25) * 100);             
+			//usleep ((7 + 25) * 100);
 			// receive 25:  approx 100 uS per char transmit
 		}
 		if(outopt == OUTPUT_NETWORK){
-			
+
 		}
 		if(outopt == OUTPUT_CONSOLE){
 			struct winsize w;
 			ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 			// printf("%05d", zipCode);
 			//printf ("lines %d columns %d\n", w.ws_row,  w.ws_col);
-			 
+
 		//printf("\x1b[2J\x1b[H");
-		//printf("\033[2J");
-		system("clear");
- 		printf("%02d-%02d-%04d",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
-			printf("  %02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-			printf("  %d days %02d hrs %02d mins %02d secs \n",upt.days, upt.hours, upt.mins, upt.secs);
-			printf("asfgasdga");
-			printf("RAM %d/%d MB\t",raminfo.used/1024,raminfo.total/1024);
-			printf("LOAD %0.2f %0.2f %0.2f\t",load[0],load[1],load[2]);
-			printf("%s\t",inet_ntoa(addr));			
+		// http://www.isthe.com/chongo/tech/comp/ansi_escapes.html
+		printf("\033[2J\x1b[H");
+ 		printf(" TIME %02d-%02d-%04d",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
+		printf("  %02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+		printf("  %d days %02d hrs %02d mins %02d secs \n",upt.days, upt.hours, upt.mins, upt.secs);
+		//printf("RAM USED:%d  RAM TOTAL:%d  RAM CACHED:%d  RAM BUFFERED:%d  RAM FREE:%d\n",raminfo.used/1024,raminfo.total/1024,raminfo.cached/1024,raminfo.buffered/1024,raminfo.free/1024);
+		ram_bar(raminfo,w.ws_col);
+		//get_cpu();
+		printf(" LOAD %0.2f %0.2f %0.2f\n",load[0],load[1],load[2]);
+		if(dev!=NULL){
+			printf("%s: %s\n",dev,inet_ntoa(addr));
+		}
 		}
 		sleep(laptime);
 	}
