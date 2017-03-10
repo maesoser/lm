@@ -187,8 +187,23 @@ struct in_addr get_addr(char *dev){
 }
 
 void clearscr(){
-	printf("\e[1;1H\e[2J");
+	printf("\033[2J\x1b[H");
 }
+
+void fill(int n){
+	int i = 0;
+	for(i=0; i < n; i++){
+		printf("|");
+	}
+}
+
+void empty(int n){
+	int i = 0;
+	for(i=0; i < n; i++){
+		printf(" ");
+	}
+}
+
 int config_serial (int fd, int speed, int parity){
         struct termios tty;
         memset (&tty, 0, sizeof tty);
@@ -282,23 +297,33 @@ float get_temp(){
 	return cpu_temp;
 }
 
-void get_cpu(){
+uint32_t get_cpu(uint32_t *cpufull,uint32_t *cpuidle){
 	// /proc/stat
 	 FILE *cpuinfo = fopen("/proc/stat", "r");
 	 if(cpuinfo == NULL){
 		 exit(-1);
 	 }
 	 char buff[256];
-	 uint32_t cputime[64];
 	 uint32_t cores = 0;
 	 while(fgets(buff, sizeof(buff), cpuinfo)){
 		//char *c = strchr(buff, '\n');
 		//if (c) *c = '\0';
 		 uint32_t val[10];
 		 uint32_t cpuid;
-			 if(sscanf(buff, "cpu%d	%d	%d	%d	%d	%d	%d	%d	%d	%d	%d",
-			 &cpuid,&val[0],&val[1],&val[2],&val[3],&val[4],&val[5],&val[6],&val[7],&val[8],&val[9]) == 1){
-					 cputime[cores] = val[0]+val[1]+val[2]+val[3]+val[4]+val[5]+val[6]+val[7]+val[8]+val[9];
+		 //     user    nice   system  idle  iowait irq   softirq  steal  guest  guest_nice
+		 if(sscanf(buff, "cpu%d %d	%d	%d	%d	%d	%d	%d	%d	%d	%d\n",
+			 &cpuid,&val[0],&val[1],&val[2],&val[3],&val[4],&val[5],&val[6],&val[7],&val[8],&val[9])){						 
+					//int usertime = val[0] - val[8];                    
+					//int nicetime = val[1] - val[9];                 
+					int idlealltime = val[3] + val[4];                
+					//int systemalltime = val[2] + val[5] + vak[4];
+					//int virtalltime = val[8] + val[9];
+					
+					cpufull[cores] = val[0]+
+						val[1]+val[2]+val[3]+val[4]+
+						val[5]+val[6]+val[7]+val[0]+val[9];
+
+					cpuidle[cores] = idlealltime;									
 					 cores = cores + 1;
 					 val[0] = 0;
 					 val[1] = 0;
@@ -309,32 +334,65 @@ void get_cpu(){
 					 val[6] = 0;
 					 val[7] = 0;
 					 val[8] = 0;
-					 val[9] = 0;
+					 val[9] = 0;					 
 			 	}
 
 	 }
-	 printf("%d cores",cores);
+	 //printf("%d cores",cores-1);
 	 if(fclose(cpuinfo) != 0){
 		 exit(-1);
 	 }
+	 return cores;
 }
+
+void cpu_bar(int cores, uint32_t *full,uint32_t *idle,uint32_t *lastfull,uint32_t *lastidle,uint32_t cols){
+	int n = 1;
+	for (n=1; n<cores;n++){
+		uint32_t vtotal = full[n]-lastfull[n];
+		uint32_t vidle = idle[n]-lastidle[n];
+		float cpupcnt = (float)((vtotal - vidle)/(float)(vtotal))*100.0;
+		//printf("%f\n",cpupcnt);
+		printf(" CPU ");
+		printf(ANSI_COLOR_BOLD "["ANSI_COLOR_RESET);
+		int ldigits = ndigits(cpupcnt);
+
+		int usedr = (float)(cols-6.0)*((float)cpupcnt/100.0);
+		if (usedr==0) usedr =1;
+		float freer = cols - usedr - 11 - ldigits;
+		fill(usedr);
+		empty(freer);
+		printf("%0.0f \% ",cpupcnt);
+		printf(ANSI_COLOR_BOLD "]"ANSI_COLOR_RESET);
+		printf("\n");
+	}
+}
+
+
+
 void ram_bar(ram_t ram, uint32_t cols){
 	printf(" RAM ");
 	printf(ANSI_COLOR_BOLD "["ANSI_COLOR_RESET);
-	int i = 0;
 	int ldigits = ndigits(ram.total/1024) + ndigits(ram.used/1024);
-	float usedr = (cols-6)*(ram.used/ram.total);
-	float freer = cols - usedr -8 - ldigits;
-	for(i=0; i < usedr; i++){
-		printf("|");
-	}
-	for(i=0; i < freer; i++){
-		printf(" ");
-	}
-	printf("%d/%d",ram.used/1024,ram.total/1024);
+	
+	int usedr = (cols-6.0)*((float)ram.used/(float)ram.total);
+	if (usedr==0) usedr =1;
+	float freer = cols - usedr - 9 - ldigits;
+	fill(usedr);
+	empty(freer);
+	printf("%d/%d ",ram.used/1024,ram.total/1024);
 	printf(ANSI_COLOR_BOLD "]"ANSI_COLOR_RESET);
+	
 	printf("\n");
 }
+
+void time_bar(struct tm* timeinfo,uptime_t upt,uint32_t cols){
+ 		printf(" TIME %02d-%02d-%04d",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
+		printf("  %02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+		cols = cols - 18 - 40 - ndigits(upt.days);
+		empty(cols);
+		printf("  %d days %02d hrs %02d mins %02d secs\n",upt.days, upt.hours, upt.mins, upt.secs);
+}
+
 int main(int argc, char *argv[]){
 	unsigned int laptime = DEFAULT_DELAY;
 	uint8_t verbose = 0;
@@ -345,6 +403,20 @@ int main(int argc, char *argv[]){
 	char *dev;
 	char *serialpath;
 	int fd;
+	
+	
+	uint32_t cpufull[64];
+	uint32_t cpuidle[64];
+	uint32_t last_cpufull[64];
+	uint32_t last_cpuidle[64];
+		
+	int i = 0;
+	for (i=0; i<64; ++i){   
+		cpufull[i] = 0;
+		cpuidle[i] = 0;
+		last_cpuidle[i] = 0;
+		last_cpufull[i] = 0;        
+	}
 	while ((opt = getopt(argc, argv, "s:i:t:n:hvc")) != -1) {
 		switch(opt) {
 			case 's':
@@ -447,25 +519,28 @@ int main(int argc, char *argv[]){
 		if(outopt == OUTPUT_NETWORK){
 
 		}
+
 		if(outopt == OUTPUT_CONSOLE){
 			struct winsize w;
 			ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 			// printf("%05d", zipCode);
 			//printf ("lines %d columns %d\n", w.ws_row,  w.ws_col);
 
-		//printf("\x1b[2J\x1b[H");
 		// http://www.isthe.com/chongo/tech/comp/ansi_escapes.html
-		printf("\033[2J\x1b[H");
- 		printf(" TIME %02d-%02d-%04d",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
-		printf("  %02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-		printf("  %d days %02d hrs %02d mins %02d secs \n",upt.days, upt.hours, upt.mins, upt.secs);
-		//printf("RAM USED:%d  RAM TOTAL:%d  RAM CACHED:%d  RAM BUFFERED:%d  RAM FREE:%d\n",raminfo.used/1024,raminfo.total/1024,raminfo.cached/1024,raminfo.buffered/1024,raminfo.free/1024);
+		clearscr();
+		time_bar(timeinfo,upt,w.ws_col);
 		ram_bar(raminfo,w.ws_col);
-		//get_cpu();
+		memcpy(last_cpufull, cpufull, sizeof(cpufull));
+		memcpy(last_cpuidle, cpuidle, sizeof(cpuidle));
+		int cores = get_cpu(cpufull,cpuidle);
+		cpu_bar(cores,cpufull,cpuidle,last_cpufull,last_cpuidle,w.ws_col);
 		printf(" LOAD %0.2f %0.2f %0.2f\n",load[0],load[1],load[2]);
+		/*
 		if(dev!=NULL){
 			printf("%s: %s\n",dev,inet_ntoa(addr));
 		}
+		*/
+		
 		}
 		sleep(laptime);
 	}
