@@ -1,128 +1,5 @@
-#include <sys/sysctl.h>
-#include <sys/types.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <errno.h>
-#include <linux/unistd.h>       /* for _syscallX macros/related stuff */
-#include <linux/kernel.h>       /* for struct sysinfo */
-#include <sys/sysinfo.h>
-#include <time.h>
-#include <unistd.h>
+#include "oled4linux.h"
 
-#include <string.h> /* for strncpy */
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <net/if.h>
-#include <arpa/inet.h>
-
-#include <fcntl.h>
-#include <termios.h>
-
-
-#define DEFAULT_DELAY 5
-#define SERIAL_SPEED B115200
-#define DEFAULT_PORT 7
-
-#define OUTPUT_CONSOLE 0
-#define OUTPUT_SERIAL 1
-#define OUTPUT_NETWORK 2
-
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_YELLOW  "\x1b[33m"
-#define ANSI_COLOR_BLUE    "\x1b[34m"
-#define ANSI_COLOR_MAGENTA "\x1b[35m"
-#define ANSI_COLOR_CYAN    "\x1b[36m"
-#define ANSI_COLOR_RESET "\x1b[0m"
-
-#define ANSI_COLOR_HEADER  "\033[95m"
-#define ANSI_COLOR_OKBLUE  "\033[94m"
-#define ANSI_COLOR_OKGREEN  "\033[92m"
-#define ANSI_COLOR_WARNING  "\033[93m"
-#define ANSI_COLOR_FAIL  "\033[91m"
-#define ANSI_COLOR_BOLD  "\033[1m"
-#define ANSI_COLOR_UNDERLINE  "\033[4m"
-
-typedef struct{
-    uint32_t total;
-    uint32_t cached;
-    uint32_t buffered;
-    uint32_t free;
-    uint32_t used;
-}ram_t;
-
-typedef struct{
-	long long tx;
-	long long rx;
-	long long lasttx;
-	long long lastrx;
-}txrx_t;
-
-typedef struct{
-	int days;
-	int hours;
-	int mins;
-	int secs;
-}uptime_t;
-
-typedef struct{
-	uint32_t ramtotal;
-	uint32_t ramfree;
-
-	uint32_t upt_days;
-	uint32_t upt_hours;
-	uint32_t upt_mins;
-	uint32_t upt_secs;
-
-	uint8_t sec;
-	uint8_t min;
-	uint8_t hour;
-	uint8_t day;
-	uint8_t month;
-	uint8_t year; // till 2255
-
-	uint16_t load[3];
-	uint8_t ip[4];
-}serial_pkt;	//64 bytes
-
-ram_t get_ram(){
- // /proc/meminfo
- // (MemTotal - MemFree - (Buffers + Cached)) / 1024
-	ram_t raminfo;
-	FILE *meminfo = fopen("/proc/meminfo", "r");
-	if(meminfo == NULL){
-		exit(-1);
-	}
-	char buff[256];
-	while(fgets(buff, sizeof(buff), meminfo)){
-		uint32_t ramKB;
-		if(sscanf(buff, "Buffers:	%d kB", &ramKB) == 1){
-			raminfo.buffered = ramKB;
-			ramKB = 0;
-		}
-		if(sscanf(buff, "MemFree: %d kB", &ramKB) == 1){
-			raminfo.free = ramKB;
-			ramKB = 0;
-		}
-		if(sscanf(buff, "MemTotal:	%d kB", &ramKB) == 1){
-			raminfo.total = ramKB;
-			ramKB = 0;
-
-		}
-		if(sscanf(buff, "Cached:	%d kB", &ramKB) == 1){
-			raminfo.cached = ramKB;
-			ramKB = 0;
-
-		}
-	}
-	if(fclose(meminfo) != 0){
-		exit(-1);
-	}
-	raminfo.used  = raminfo.total - raminfo.free - (raminfo.buffered + raminfo.cached);
-	return raminfo;
-}
 
 uint8_t * addr2arr(struct in_addr ipadrr){
 	static uint8_t iparr[4] = {0};
@@ -130,93 +7,6 @@ uint8_t * addr2arr(struct in_addr ipadrr){
 	sscanf(ipstr, "%d.%d.%d.%d", &iparr[0], &iparr[1], &iparr[2], &iparr[3]);
 	return iparr;
 }
-uptime_t get_uptime(){
-	uptime_t upt;
-
-	/*
-	 * struct sysinfo {
-    long uptime;             // Seconds since boot
-    unsigned long loads[3];  // 1, 5, and 15 minute load averages
-    unsigned long totalram;  // Total usable main memory size
-    unsigned long freeram;   // Available memory size
-    unsigned long sharedram; // Amount of shared memory
-    unsigned long bufferram; // Memory used by buffers
-    unsigned long totalswap; // Total swap space size
-    unsigned long freeswap;  // swap space still available
-    unsigned short procs;    // Number of current processes
-    unsigned long totalhigh; // Total high memory size
-    unsigned long freehigh;  // Available high memory size
-    unsigned int mem_unit;   // Memory unit size in bytes
-    char _f[20-2*sizeof(long)-sizeof(int)]; // Padding for libc5
-	};
-	*/
-	struct sysinfo sys_info;
-	int days, hours, mins, secs = 1;
-	if(sysinfo(&sys_info) != 0)	perror("sysinfo");
-
-	days = sys_info.uptime / 86400;
-	hours = (sys_info.uptime / 3600) - (days * 24);
-	mins = (sys_info.uptime / 60) - (days * 1440) - (hours * 60);
-	secs = sys_info.uptime % 60;
-
-	//printf("\033[1;33m  Load Avgs: \033[0;m 1min(%ld) 5min(%ld) 15min(%ld) \n",sys_info.loads[0], sys_info.loads[1], sys_info.loads[2]);
-	//printf("\033[1;33m  Total Ram: \033[0;m %ldMb \t Free: %ldMb \n", sys_info.totalram/(1024*1024), sys_info.freeram /(1024*1024));
-	//printf(" \033[1;33m Shared Ram: \033[0;m %ldMb ", sys_info.sharedram /(1024*1024) );
-	//printf("  Buffered Ram: %ldMb \n", sys_info.bufferram / (1024*1024));
-	//printf("\033[1;33m  Total Swap: \033[0;m %ldMb \t Free swap: %ldMb \n", sys_info.totalswap / (1024*1024), sys_info.freeswap / (1024*1024));
-	//printf(" \n");
-	//printf("\033[1;44m Total Number of processes: %d \033[0;m \n", sys_info.procs);
-	upt.hours = hours;
-	upt.days = days;
-	upt.secs = secs;
-	upt.mins = mins;
-	return upt;
-}
-
-struct in_addr get_addr(char *dev){
-	int fd;
-	struct ifreq ifr;
-	int out = 0;
-
-	fd = socket(AF_INET, SOCK_DGRAM, 0);
-	ifr.ifr_addr.sa_family = AF_INET;
-
-	/* I want IP address attached to "eth0" */
-	strncpy(ifr.ifr_name, dev, IFNAMSIZ-1);
-	out = ioctl(fd, SIOCGIFADDR, &ifr);
-	close(fd);
-	/* display result */
-	if(out<0){
-		struct in_addr addr = { 0 };
-		return addr;
-	}
-	return ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
-}
-
-void gettxrx(char *dev, txrx_t *if1){
-	 FILE *netinfo = fopen("/proc/net/dev", "r");
-	 if(netinfo == NULL){
-		 exit(-1);
-	 }
-	 char buff[256];
-	 while(fgets(buff, sizeof(buff), netinfo)){
-		 long long tx = 0;
-		 long long rx = 0;
-		 char ifname[32];
-		 int conv = sscanf( buff," %[^:]: %Lu %*u %*u %*u %*u %*u %*u %*u %Lu %*u %*u %*u %*u %*u %*u %*u",ifname, &rx, &tx );				 
-			if(strstr(ifname,dev)!=NULL){
-				//printf("%s %Lu %Lu tx/rx\n",ifname ,tx,rx); 
-				if1->lasttx = if1->tx;
-				if1->lastrx = if1->rx;
-				if1->tx = tx;
-				if1->rx = rx;
-			}
-	 }
-	 if(fclose(netinfo) != 0){
-		 exit(-1);
-	 }	 
-}
-
 
 void clearscr(){
 	printf("\033[2J\x1b[H");
@@ -319,190 +109,15 @@ uint8_t ndigits(int n){
 		return count;
 }
 
-float get_temp(){
-	FILE *fp;
-	char buff[5];
-	float cpu_temp = 0;
-	fp = fopen("/sys/class/thermal/thermal_zone0/temp", "r");
-	if(fp==NULL) return -1;
-	fscanf(fp, "%s", buff);
-	cpu_temp = (float)atoi(buff)/1000;
-	fclose(fp);
-	return cpu_temp;
-}
 
-uint32_t get_cpu(uint32_t *cpufull,uint32_t *cpuidle){
-	// /proc/stat
-	 FILE *cpuinfo = fopen("/proc/stat", "r");
-	 if(cpuinfo == NULL){
-		 exit(-1);
-	 }
-	 char buff[256];
-	 uint32_t cores = 0;
-	 while(fgets(buff, sizeof(buff), cpuinfo)){
-		//char *c = strchr(buff, '\n');
-		//if (c) *c = '\0';
-		 uint32_t val[10];
-		 uint32_t cpuid;
-		 //     user    nice   system  idle  iowait irq   softirq  steal  guest  guest_nice
-		 if(sscanf(buff, "cpu%d %d	%d	%d	%d	%d	%d	%d	%d	%d	%d\n",
-			 &cpuid,&val[0],&val[1],&val[2],&val[3],&val[4],&val[5],&val[6],&val[7],&val[8],&val[9])){						 
-					//int usertime = val[0] - val[8];                    
-					//int nicetime = val[1] - val[9];                 
-					int idlealltime = val[3] + val[4];                
-					//int systemalltime = val[2] + val[5] + vak[4];
-					//int virtalltime = val[8] + val[9];
-					
-					cpufull[cores] = val[0]+
-						val[1]+val[2]+val[3]+val[4]+
-						val[5]+val[6]+val[7]+val[0]+val[9];
-
-					cpuidle[cores] = idlealltime;									
-					 cores = cores + 1;
-					 val[0] = 0;
-					 val[1] = 0;
-					 val[2] = 0;
-					 val[3] = 0;
-					 val[4] = 0;
-					 val[5] = 0;
-					 val[6] = 0;
-					 val[7] = 0;
-					 val[8] = 0;
-					 val[9] = 0;					 
-			 	}
-
-	 }
-	 //printf("%d cores",cores-1);
-	 if(fclose(cpuinfo) != 0){
-		 exit(-1);
-	 }
-	 return cores;
-}
-
-void cpu_bar(int cores, uint32_t *full,uint32_t *idle,uint32_t *lastfull,uint32_t *lastidle,uint32_t cols){
-	int n = 1;
-	for (n=1; n<cores;n++){
-		uint32_t vtotal = full[n]-lastfull[n];
-		uint32_t vidle = idle[n]-lastidle[n];
-		float cpupcnt = (float)((vtotal - vidle)/(float)(vtotal))*100.0;
-		//printf("%f\n",cpupcnt);
-		printf(ANSI_COLOR_BOLD " CPU "ANSI_COLOR_RESET);
-		//printf(" CPU ");
-		//printf(ANSI_COLOR_BOLD "["ANSI_COLOR_RESET);
-		int ldigits = ndigits(cpupcnt);
-		if (ldigits==0) ldigits=1;
-		int usedr = (float)(cols-6.0)*((float)cpupcnt/100.0);
-		float freer = cols - usedr - 10 - ldigits;
-		printf(ANSI_COLOR_OKGREEN);
-		if (cpupcnt> 50) printf(ANSI_COLOR_WARNING);
-		if (cpupcnt> 75) printf(ANSI_COLOR_FAIL);
-		fill(usedr);
-		printf(ANSI_COLOR_RESET);
-		empty(freer);
-		printf("%0.1f \% ",cpupcnt);
-		//printf(ANSI_COLOR_BOLD "]"ANSI_COLOR_RESET);
-		printf("\n");
-	}
-}
-
-void status_bar(double *load,uint32_t cols){
-	printf(ANSI_COLOR_BOLD" LOAD"ANSI_COLOR_RESET" %0.2f %0.2f %0.2f",load[0],load[1],load[2]);
-	int temp = get_temp();
-	cols = cols - 29 - ndigits(temp);
-	empty(cols);
-	printf(ANSI_COLOR_BOLD "TEMP"ANSI_COLOR_RESET" %d ºC\n",temp);
-}
-
-void ram_bar(ram_t ram, uint32_t cols){
-	printf(ANSI_COLOR_BOLD" RAM " ANSI_COLOR_RESET);
-	//printf(ANSI_COLOR_BOLD "["ANSI_COLOR_RESET);
-	int ldigits = ndigits(ram.total/1024) + ndigits(ram.used/1024);
-	
-	float ramfull = ((float)ram.used/(float)ram.total);
-	int usedr = (cols-6.0-ldigits)*ramfull;
-	if (usedr==0) usedr = 1;
-	float freer = cols - usedr - 9;
-	printf(ANSI_COLOR_OKGREEN);
-	if (ramfull > 0.5) printf(ANSI_COLOR_WARNING);
-	if (ramfull > 0.7) printf(ANSI_COLOR_FAIL);
-	fill(usedr);
-	printf(ANSI_COLOR_RESET);
-	empty(freer);
-	printf("%d/%d ",ram.used/1024,ram.total/1024);
-	//printf(ANSI_COLOR_BOLD "]"ANSI_COLOR_RESET);
-	
-	printf("\n");
-}
-
-void time_bar(struct tm* timeinfo,uptime_t upt,uint32_t cols){
- 		printf(ANSI_COLOR_BOLD" TIME"ANSI_COLOR_RESET" %02d-%02d-%04d",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
-		printf("  %02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-		cols = cols - 18 - 40 - ndigits(upt.days);
-		empty(cols);
-		printf("  %d days %02d hrs %02d mins %02d secs\n",upt.days, upt.hours, upt.mins, upt.secs);
-}
-
-void ip_bar(char *dev, char*dev2,struct in_addr addr,struct in_addr addr2,int net, txrx_t *if1d, txrx_t *if2d,uint32_t cols){
-	long long tx,rx;
-	char metric = 'B';
-	
-	if(dev!=NULL && net==1){
-		printf(ANSI_COLOR_BOLD" NET " ANSI_COLOR_RESET);
-		printf("%s: %s",dev,inet_ntoa(addr));
-		
-		tx = (if1d->tx - if1d->lasttx);
-		rx = (if1d->rx - if1d->lastrx);
-		metric = 'B';
-		
-		if (rx>1024 || tx > 1024){
-			rx = rx/1024;
-			tx = tx/1024;
-			metric = 'K';
-		}
-		
-		if (rx>1024 || tx > 1024){
-			rx = rx/1024;
-			tx = tx/1024;
-			metric = 'M';
-		}
-		//cols = cols - 45 - ndigits(tx) - ndigits(rx);
-		//empty(cols);
-		printf(ANSI_COLOR_BOLD"\tTX:\t"ANSI_COLOR_RESET"%Lu%c",tx,metric);
-		printf(ANSI_COLOR_BOLD"\tRX:\t"ANSI_COLOR_RESET"%Lu%c\n",rx,metric);
-
-	}
-	if(dev2!=NULL && net==2){
-		printf(ANSI_COLOR_BOLD" NET " ANSI_COLOR_RESET);
-		printf("%s: %s",dev2,inet_ntoa(addr2));
-		
-		tx = (if2d->tx - if2d->lasttx);
-		rx = (if2d->rx - if2d->lastrx);		
-		metric = 'B';
-		
-		if (rx>2048 || tx > 2048){
-			rx = rx/1024;
-			tx = tx/1024;
-			metric = 'K';
-		}
-		
-		if (rx>2048 || tx > 2048){
-			rx = rx/1024;
-			tx = tx/1024;
-			metric = 'M';
-		}
-		
-		printf("\tTX/RX:\t%Lu/%Lu %c\n",tx,rx,metric);
-	}
-}
 int main(int argc, char *argv[]){
 	unsigned int laptime = DEFAULT_DELAY;
 	uint8_t verbose = 0;
-	uint8_t net = 0;
 	uint8_t outopt = 0;
 	uint32_t port = DEFAULT_PORT;
 	int opt;
-	char *dev;
-	char *dev2;
+	char dev[32];
+	char dev2[32];
 	char *serialpath;
 	int fd;
 	
@@ -529,7 +144,7 @@ int main(int argc, char *argv[]){
 		last_cpuidle[i] = 0;
 		last_cpufull[i] = 0;        
 	}
-	while ((opt = getopt(argc, argv, "s:i:t:n:hvc")) != -1) {
+	while ((opt = getopt(argc, argv, "s:t:n:hvc")) != -1) {
 		switch(opt) {
 			case 's':
 				outopt = OUTPUT_SERIAL;
@@ -544,13 +159,6 @@ int main(int argc, char *argv[]){
 			case 'v':
 				verbose = 1;
 				break;
-			case 'i':
-				dev = optarg;
-				net = 1;
-				break;
-			case 'w':
-				dev2 = optarg;
-				net = 2;
 			case 'n':
 				outopt= OUTPUT_NETWORK;
 				port = atoi(optarg);
@@ -592,10 +200,14 @@ int main(int argc, char *argv[]){
 		timeinfo = localtime(&rawtime);
 
 		struct in_addr addr = { 0 };
-		if(net==1) addr = get_addr(dev);
+		int ifaces = get_ifname(dev,1);
+		addr = get_addr(dev);
 
 		struct in_addr addr2 = { 0 };
-		if(net==2) addr2 = get_addr(dev2);
+		if (ifaces > 1){
+				get_ifname(dev2,2);
+				addr2 = get_addr(dev2);
+		}
 		
 		if(verbose){
 			printf("%02d-%02d-%04d ",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
@@ -647,7 +259,6 @@ int main(int argc, char *argv[]){
 		clearscr();
 		time_bar(timeinfo,upt,w.ws_col);
 		status_bar(load,w.ws_col);
-		ram_bar(raminfo,w.ws_col);
 		
 		memcpy(last_cpufull, cpufull, sizeof(cpufull));
 		memcpy(last_cpuidle, cpuidle, sizeof(cpuidle));
@@ -655,11 +266,14 @@ int main(int argc, char *argv[]){
 		
 		cpu_bar(cores,cpufull,cpuidle,last_cpufull,last_cpuidle,w.ws_col);
 		
+		ram_bar(raminfo,w.ws_col);
+		swap_t swap = get_swap();
+		swap_bar(swap,w.ws_col);
+		
 		gettxrx(dev,&if1stats);
 		gettxrx(dev2,&if2stats);
 		
-		ip_bar(dev,dev2,addr,addr2,net,&if1stats,&if2stats,w.ws_col);
-		
+		ip_bar(dev,dev2,addr,addr2,ifaces,&if1stats,&if2stats,w.ws_col);
 		
 		}
 		sleep(laptime);
