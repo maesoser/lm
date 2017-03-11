@@ -165,6 +165,7 @@ uptime_t get_uptime(){
 	upt.mins = mins;
 	return upt;
 }
+
 struct in_addr get_addr(char *dev){
 	int fd;
 	struct ifreq ifr;
@@ -355,29 +356,40 @@ void cpu_bar(int cores, uint32_t *full,uint32_t *idle,uint32_t *lastfull,uint32_
 		printf(" CPU ");
 		printf(ANSI_COLOR_BOLD "["ANSI_COLOR_RESET);
 		int ldigits = ndigits(cpupcnt);
-
+		if (ldigits==0) ldigits=1;
 		int usedr = (float)(cols-6.0)*((float)cpupcnt/100.0);
-		if (usedr==0) usedr =1;
-		float freer = cols - usedr - 11 - ldigits;
+		float freer = cols - usedr - 10 - ldigits;
+		printf(ANSI_COLOR_OKGREEN);
+		if (cpupcnt> 50) printf(ANSI_COLOR_WARNING);
+		if (cpupcnt> 75) printf(ANSI_COLOR_FAIL);
 		fill(usedr);
+		printf(ANSI_COLOR_RESET);
 		empty(freer);
-		printf("%0.0f \% ",cpupcnt);
+		printf("%0.1f \% ",cpupcnt);
 		printf(ANSI_COLOR_BOLD "]"ANSI_COLOR_RESET);
 		printf("\n");
 	}
 }
 
 
+void status_bar(double *load){
+	printf(" LOAD %0.2f %0.2f %0.2f\n",load[0],load[1],load[2]);
+}
 
 void ram_bar(ram_t ram, uint32_t cols){
 	printf(" RAM ");
 	printf(ANSI_COLOR_BOLD "["ANSI_COLOR_RESET);
 	int ldigits = ndigits(ram.total/1024) + ndigits(ram.used/1024);
 	
-	int usedr = (cols-6.0)*((float)ram.used/(float)ram.total);
-	if (usedr==0) usedr =1;
+	float ramfull = ((float)ram.used/(float)ram.total);
+	int usedr = (cols-6.0)*ramfull;
+	if (usedr==0) usedr = 1;
 	float freer = cols - usedr - 9 - ldigits;
+	printf(ANSI_COLOR_OKGREEN);
+	if (ramfull > 0.5) printf(ANSI_COLOR_WARNING);
+	if (ramfull > 0.7) printf(ANSI_COLOR_FAIL);
 	fill(usedr);
+	printf(ANSI_COLOR_RESET);
 	empty(freer);
 	printf("%d/%d ",ram.used/1024,ram.total/1024);
 	printf(ANSI_COLOR_BOLD "]"ANSI_COLOR_RESET);
@@ -393,6 +405,14 @@ void time_bar(struct tm* timeinfo,uptime_t upt,uint32_t cols){
 		printf("  %d days %02d hrs %02d mins %02d secs\n",upt.days, upt.hours, upt.mins, upt.secs);
 }
 
+void ip_bar(char *dev, char*dev2,struct in_addr addr,struct in_addr addr2){
+	if(dev!=NULL){
+		printf("%s: %s\n",dev,inet_ntoa(addr));
+	}
+	if(dev2!=NULL){
+		printf("%s: %s\n",dev2,inet_ntoa(addr2));
+	}
+}
 int main(int argc, char *argv[]){
 	unsigned int laptime = DEFAULT_DELAY;
 	uint8_t verbose = 0;
@@ -401,6 +421,7 @@ int main(int argc, char *argv[]){
 	uint32_t port = DEFAULT_PORT;
 	int opt;
 	char *dev;
+	char *dev2;
 	char *serialpath;
 	int fd;
 	
@@ -436,6 +457,9 @@ int main(int argc, char *argv[]){
 				dev = optarg;
 				net = 1;
 				break;
+			case 'w':
+				dev2 = optarg;
+				net = 1;
 			case 'n':
 				outopt= OUTPUT_NETWORK;
 				port = atoi(optarg);
@@ -477,17 +501,19 @@ int main(int argc, char *argv[]){
 		timeinfo = localtime(&rawtime);
 
 		struct in_addr addr = { 0 };
-
 		if(net) addr = get_addr(dev);
 
+		struct in_addr addr2 = { 0 };
+		if(net) addr2 = get_addr(dev2);
+		
 		if(verbose){
 			printf("%02d-%02d-%04d ",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
 			printf("%02d:%02d:%02d\t", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 			printf("%d days %02d hrs %02d mins %02d secs\t",upt.days, upt.hours, upt.mins, upt.secs);
 			printf("RAM %d/%d MB\t",raminfo.used/1024,raminfo.total/1024);
 			printf("LOAD %0.2f %0.2f %0.2f\t",load[0],load[1],load[2]);
-			printf("%s\t",inet_ntoa(addr));
-			printf("%lu\n",sizeof(serial_pkt));
+			printf(" %s\t",inet_ntoa(addr));
+			printf(" %lu\n",sizeof(serial_pkt));
 
 		}
 		if(outopt == OUTPUT_SERIAL){
@@ -534,12 +560,10 @@ int main(int argc, char *argv[]){
 		memcpy(last_cpuidle, cpuidle, sizeof(cpuidle));
 		int cores = get_cpu(cpufull,cpuidle);
 		cpu_bar(cores,cpufull,cpuidle,last_cpufull,last_cpuidle,w.ws_col);
-		printf(" LOAD %0.2f %0.2f %0.2f\n",load[0],load[1],load[2]);
-		/*
-		if(dev!=NULL){
-			printf("%s: %s\n",dev,inet_ntoa(addr));
-		}
-		*/
+		ip_bar(dev,dev2,addr,addr2);
+
+
+		
 		
 		}
 		sleep(laptime);
