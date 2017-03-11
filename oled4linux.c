@@ -54,6 +54,13 @@ typedef struct{
 }ram_t;
 
 typedef struct{
+	long long tx;
+	long long rx;
+	long long lasttx;
+	long long lastrx;
+}txrx_t;
+
+typedef struct{
 	int days;
 	int hours;
 	int mins;
@@ -179,13 +186,31 @@ struct in_addr get_addr(char *dev){
 	out = ioctl(fd, SIOCGIFADDR, &ifr);
 	close(fd);
 	/* display result */
-	//printf("%s\n", inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
 	if(out<0){
 		struct in_addr addr = { 0 };
 		return addr;
 	}
 	return ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
 }
+
+void gettxrx(char *dev){
+	 FILE *netinfo = fopen("/proc/net/dev", "r");
+	 if(netinfo == NULL){
+		 exit(-1);
+	 }
+	 char buff[256];
+	 while(fgets(buff, sizeof(buff), netinfo)){
+		 long long tx = 0;
+		 long long rx = 0;
+		 char ifname[32];
+		 int conv = sscanf( buff," %[^:]: %Lu %*u %*u %*u %*u %*u %*u %*u %Lu %*u %*u %*u %*u %*u %*u %*u",ifname, &rx, &tx );				 
+			printf("%Lu %Lu tx/rx",tx,rx); 
+	 }
+	 if(fclose(netinfo) != 0){
+		 exit(-1);
+	 }	 
+}
+
 
 void clearscr(){
 	printf("\033[2J\x1b[H");
@@ -194,7 +219,8 @@ void clearscr(){
 void fill(int n){
 	int i = 0;
 	for(i=0; i < n; i++){
-		printf("|");
+		printf("█");
+		//printf("|");
 	}
 }
 
@@ -353,8 +379,9 @@ void cpu_bar(int cores, uint32_t *full,uint32_t *idle,uint32_t *lastfull,uint32_
 		uint32_t vidle = idle[n]-lastidle[n];
 		float cpupcnt = (float)((vtotal - vidle)/(float)(vtotal))*100.0;
 		//printf("%f\n",cpupcnt);
-		printf(" CPU ");
-		printf(ANSI_COLOR_BOLD "["ANSI_COLOR_RESET);
+		printf(ANSI_COLOR_BOLD " CPU "ANSI_COLOR_RESET);
+		//printf(" CPU ");
+		//printf(ANSI_COLOR_BOLD "["ANSI_COLOR_RESET);
 		int ldigits = ndigits(cpupcnt);
 		if (ldigits==0) ldigits=1;
 		int usedr = (float)(cols-6.0)*((float)cpupcnt/100.0);
@@ -366,19 +393,23 @@ void cpu_bar(int cores, uint32_t *full,uint32_t *idle,uint32_t *lastfull,uint32_
 		printf(ANSI_COLOR_RESET);
 		empty(freer);
 		printf("%0.1f \% ",cpupcnt);
-		printf(ANSI_COLOR_BOLD "]"ANSI_COLOR_RESET);
+		//printf(ANSI_COLOR_BOLD "]"ANSI_COLOR_RESET);
 		printf("\n");
 	}
 }
 
 
-void status_bar(double *load){
-	printf(" LOAD %0.2f %0.2f %0.2f\n",load[0],load[1],load[2]);
+void status_bar(double *load,uint32_t cols){
+	printf(ANSI_COLOR_BOLD" LOAD"ANSI_COLOR_RESET" %0.2f %0.2f %0.2f",load[0],load[1],load[2]);
+	int temp = get_temp();
+	cols = cols - 29 - ndigits(temp);
+	empty(cols);
+	printf(ANSI_COLOR_BOLD "TEMP"ANSI_COLOR_RESET" %d ºC\n",temp);
 }
 
 void ram_bar(ram_t ram, uint32_t cols){
-	printf(" RAM ");
-	printf(ANSI_COLOR_BOLD "["ANSI_COLOR_RESET);
+	printf(ANSI_COLOR_BOLD" RAM " ANSI_COLOR_RESET);
+	//printf(ANSI_COLOR_BOLD "["ANSI_COLOR_RESET);
 	int ldigits = ndigits(ram.total/1024) + ndigits(ram.used/1024);
 	
 	float ramfull = ((float)ram.used/(float)ram.total);
@@ -392,24 +423,26 @@ void ram_bar(ram_t ram, uint32_t cols){
 	printf(ANSI_COLOR_RESET);
 	empty(freer);
 	printf("%d/%d ",ram.used/1024,ram.total/1024);
-	printf(ANSI_COLOR_BOLD "]"ANSI_COLOR_RESET);
+	//printf(ANSI_COLOR_BOLD "]"ANSI_COLOR_RESET);
 	
 	printf("\n");
 }
 
 void time_bar(struct tm* timeinfo,uptime_t upt,uint32_t cols){
- 		printf(" TIME %02d-%02d-%04d",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
+ 		printf(ANSI_COLOR_BOLD" TIME"ANSI_COLOR_RESET" %02d-%02d-%04d",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
 		printf("  %02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 		cols = cols - 18 - 40 - ndigits(upt.days);
 		empty(cols);
 		printf("  %d days %02d hrs %02d mins %02d secs\n",upt.days, upt.hours, upt.mins, upt.secs);
 }
 
-void ip_bar(char *dev, char*dev2,struct in_addr addr,struct in_addr addr2){
-	if(dev!=NULL){
+void ip_bar(char *dev, char*dev2,struct in_addr addr,struct in_addr addr2,int net){
+	if(dev!=NULL && net==1){
+		printf(ANSI_COLOR_BOLD" IFACE " ANSI_COLOR_RESET);
 		printf("%s: %s\n",dev,inet_ntoa(addr));
 	}
-	if(dev2!=NULL){
+	if(dev2!=NULL && net==2){
+		printf(ANSI_COLOR_BOLD" RAM " ANSI_COLOR_RESET);
 		printf("%s: %s\n",dev2,inet_ntoa(addr2));
 	}
 }
@@ -425,12 +458,22 @@ int main(int argc, char *argv[]){
 	char *serialpath;
 	int fd;
 	
-	
 	uint32_t cpufull[64];
 	uint32_t cpuidle[64];
 	uint32_t last_cpufull[64];
 	uint32_t last_cpuidle[64];
-		
+
+	txrx_t if1stats;
+	txrx_t if2stats;
+	if1stats.tx = 0;
+	if1stats.rx = 0;
+	if1stats.lasttx = 0;
+	if1stats.lastrx = 0;
+	if2stats.tx = 0;
+	if2stats.rx = 0;
+	if2stats.lasttx = 0;
+	if2stats.lastrx = 0;
+	
 	int i = 0;
 	for (i=0; i<64; ++i){   
 		cpufull[i] = 0;
@@ -459,7 +502,7 @@ int main(int argc, char *argv[]){
 				break;
 			case 'w':
 				dev2 = optarg;
-				net = 1;
+				net = 2;
 			case 'n':
 				outopt= OUTPUT_NETWORK;
 				port = atoi(optarg);
@@ -501,10 +544,10 @@ int main(int argc, char *argv[]){
 		timeinfo = localtime(&rawtime);
 
 		struct in_addr addr = { 0 };
-		if(net) addr = get_addr(dev);
+		if(net==1) addr = get_addr(dev);
 
 		struct in_addr addr2 = { 0 };
-		if(net) addr2 = get_addr(dev2);
+		if(net==2) addr2 = get_addr(dev2);
 		
 		if(verbose){
 			printf("%02d-%02d-%04d ",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
@@ -555,14 +598,19 @@ int main(int argc, char *argv[]){
 		// http://www.isthe.com/chongo/tech/comp/ansi_escapes.html
 		clearscr();
 		time_bar(timeinfo,upt,w.ws_col);
+		status_bar(load,w.ws_col);
 		ram_bar(raminfo,w.ws_col);
+		
 		memcpy(last_cpufull, cpufull, sizeof(cpufull));
 		memcpy(last_cpuidle, cpuidle, sizeof(cpuidle));
 		int cores = get_cpu(cpufull,cpuidle);
+		
 		cpu_bar(cores,cpufull,cpuidle,last_cpufull,last_cpuidle,w.ws_col);
-		ip_bar(dev,dev2,addr,addr2);
-
-
+		
+		gettxrx(dev,if1stat);
+		gettxrx(dev2,if2stat);
+		
+		ip_bar(dev,dev2,addr,addr2,net,if1stat,if2stat);
 		
 		
 		}
