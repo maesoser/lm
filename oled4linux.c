@@ -193,7 +193,7 @@ struct in_addr get_addr(char *dev){
 	return ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
 }
 
-void gettxrx(char *dev){
+void gettxrx(char *dev, txrx_t *if1){
 	 FILE *netinfo = fopen("/proc/net/dev", "r");
 	 if(netinfo == NULL){
 		 exit(-1);
@@ -204,7 +204,13 @@ void gettxrx(char *dev){
 		 long long rx = 0;
 		 char ifname[32];
 		 int conv = sscanf( buff," %[^:]: %Lu %*u %*u %*u %*u %*u %*u %*u %Lu %*u %*u %*u %*u %*u %*u %*u",ifname, &rx, &tx );				 
-			printf("%Lu %Lu tx/rx",tx,rx); 
+			if(strstr(ifname,dev)!=NULL){
+				//printf("%s %Lu %Lu tx/rx\n",ifname ,tx,rx); 
+				if1->lasttx = if1->tx;
+				if1->lastrx = if1->rx;
+				if1->tx = tx;
+				if1->rx = rx;
+			}
 	 }
 	 if(fclose(netinfo) != 0){
 		 exit(-1);
@@ -309,6 +315,7 @@ uint8_t ndigits(int n){
         n /= 10;
         ++count;
     }
+    if(count==0) count = 1; 
 		return count;
 }
 
@@ -398,7 +405,6 @@ void cpu_bar(int cores, uint32_t *full,uint32_t *idle,uint32_t *lastfull,uint32_
 	}
 }
 
-
 void status_bar(double *load,uint32_t cols){
 	printf(ANSI_COLOR_BOLD" LOAD"ANSI_COLOR_RESET" %0.2f %0.2f %0.2f",load[0],load[1],load[2]);
 	int temp = get_temp();
@@ -413,9 +419,9 @@ void ram_bar(ram_t ram, uint32_t cols){
 	int ldigits = ndigits(ram.total/1024) + ndigits(ram.used/1024);
 	
 	float ramfull = ((float)ram.used/(float)ram.total);
-	int usedr = (cols-6.0)*ramfull;
+	int usedr = (cols-6.0-ldigits)*ramfull;
 	if (usedr==0) usedr = 1;
-	float freer = cols - usedr - 9 - ldigits;
+	float freer = cols - usedr - 9;
 	printf(ANSI_COLOR_OKGREEN);
 	if (ramfull > 0.5) printf(ANSI_COLOR_WARNING);
 	if (ramfull > 0.7) printf(ANSI_COLOR_FAIL);
@@ -436,14 +442,56 @@ void time_bar(struct tm* timeinfo,uptime_t upt,uint32_t cols){
 		printf("  %d days %02d hrs %02d mins %02d secs\n",upt.days, upt.hours, upt.mins, upt.secs);
 }
 
-void ip_bar(char *dev, char*dev2,struct in_addr addr,struct in_addr addr2,int net){
+void ip_bar(char *dev, char*dev2,struct in_addr addr,struct in_addr addr2,int net, txrx_t *if1d, txrx_t *if2d,uint32_t cols){
+	long long tx,rx;
+	char metric = 'B';
+	
 	if(dev!=NULL && net==1){
-		printf(ANSI_COLOR_BOLD" IFACE " ANSI_COLOR_RESET);
-		printf("%s: %s\n",dev,inet_ntoa(addr));
+		printf(ANSI_COLOR_BOLD" NET " ANSI_COLOR_RESET);
+		printf("%s: %s",dev,inet_ntoa(addr));
+		
+		tx = (if1d->tx - if1d->lasttx);
+		rx = (if1d->rx - if1d->lastrx);
+		metric = 'B';
+		
+		if (rx>1024 || tx > 1024){
+			rx = rx/1024;
+			tx = tx/1024;
+			metric = 'K';
+		}
+		
+		if (rx>1024 || tx > 1024){
+			rx = rx/1024;
+			tx = tx/1024;
+			metric = 'M';
+		}
+		//cols = cols - 45 - ndigits(tx) - ndigits(rx);
+		//empty(cols);
+		printf(ANSI_COLOR_BOLD"\tTX:\t"ANSI_COLOR_RESET"%Lu%c",tx,metric);
+		printf(ANSI_COLOR_BOLD"\tRX:\t"ANSI_COLOR_RESET"%Lu%c\n",rx,metric);
+
 	}
 	if(dev2!=NULL && net==2){
-		printf(ANSI_COLOR_BOLD" RAM " ANSI_COLOR_RESET);
-		printf("%s: %s\n",dev2,inet_ntoa(addr2));
+		printf(ANSI_COLOR_BOLD" NET " ANSI_COLOR_RESET);
+		printf("%s: %s",dev2,inet_ntoa(addr2));
+		
+		tx = (if2d->tx - if2d->lasttx);
+		rx = (if2d->rx - if2d->lastrx);		
+		metric = 'B';
+		
+		if (rx>2048 || tx > 2048){
+			rx = rx/1024;
+			tx = tx/1024;
+			metric = 'K';
+		}
+		
+		if (rx>2048 || tx > 2048){
+			rx = rx/1024;
+			tx = tx/1024;
+			metric = 'M';
+		}
+		
+		printf("\tTX/RX:\t%Lu/%Lu %c\n",tx,rx,metric);
 	}
 }
 int main(int argc, char *argv[]){
@@ -607,10 +655,10 @@ int main(int argc, char *argv[]){
 		
 		cpu_bar(cores,cpufull,cpuidle,last_cpufull,last_cpuidle,w.ws_col);
 		
-		gettxrx(dev,if1stat);
-		gettxrx(dev2,if2stat);
+		gettxrx(dev,&if1stats);
+		gettxrx(dev2,&if2stats);
 		
-		ip_bar(dev,dev2,addr,addr2,net,if1stat,if2stat);
+		ip_bar(dev,dev2,addr,addr2,net,&if1stats,&if2stats,w.ws_col);
 		
 		
 		}
