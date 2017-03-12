@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS += -O2 -Wall
+CFLAGS += -Wall
 PREFIX ?= /usr/local
 
 all: o4l

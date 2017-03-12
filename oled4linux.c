@@ -4,14 +4,14 @@
 uint8_t * addr2arr(struct in_addr ipadrr){
 	static uint8_t iparr[4] = {0};
 	char *ipstr = inet_ntoa(ipadrr);
-	sscanf(ipstr, "%d.%d.%d.%d", &iparr[0], &iparr[1], &iparr[2], &iparr[3]);
+	sscanf(ipstr, "%hhu.%hhu.%hhu.%hhu", &iparr[0], &iparr[1], &iparr[2], &iparr[3]);
 	return iparr;
 }
 
 uint8_t addr2size(struct in_addr ipadrr){
 	static uint8_t iparr[4] = {0};
 	char *ipstr = inet_ntoa(ipadrr);
-	sscanf(ipstr, "%d.%d.%d.%d", &iparr[0], &iparr[1], &iparr[2], &iparr[3]);
+	sscanf(ipstr, "%hhu.%hhu.%hhu.%hhu", &iparr[0], &iparr[1], &iparr[2], &iparr[3]);
 	uint8_t sum = 0;
 	sum = ndigits(iparr[0])+ndigits(iparr[1])+ndigits(iparr[2])+ndigits(iparr[3]);
 	return sum;
