@@ -101,7 +101,7 @@ int config_serial (int fd, int speed, int parity);
 void set_blocking (int fd, int should_block);
 void print_help();
 uint8_t ndigits(int n);
-
+uint8_t addr2size(struct in_addr ipadrr);
 
 void ram_bar(ram_t ram, uint32_t cols);
 void status_bar(double *load,uint32_t cols);
