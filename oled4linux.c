@@ -87,11 +87,10 @@ void print_help(){
 	printf("\n oled4linux: Send monitorization info to an external oled screen via serial\n");
 		printf("\n OPTIONS:\n");
 		printf("\t -h \tPrint this help\n");
-		printf("\t -v \tShow info on stdout\n");
-		printf("\t -i [IF]\tSpecify an interface to show its IP\n");
+		printf("\t -v \tShow debug on stdout\n");
 		printf("\t -t [TIME]\tSend time.\n");
 		printf("\t -s [SERIAL_PATH]\tSpecify a serial port to send the data\n");
-		printf("\t -n [port]\tSend data using udp packets to the specified port.\n");
+		printf("\t -n [port]\tSend data using udp to the specified port.\n");
 		printf("\t -c \tShow the data using ncurses style\n");
 
 

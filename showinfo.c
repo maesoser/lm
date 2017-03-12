@@ -103,7 +103,9 @@ void ip_bar(char *dev, char*dev2,struct in_addr addr,struct in_addr addr2,int if
 			metric = 'M';
 		}
 		
-		printf("\tTX/RX:\t%Lu/%Lu %c\n",tx,rx,metric);
+                printf(ANSI_COLOR_BOLD"\tTX:\t"ANSI_COLOR_RESET"%Lu%c",tx,metric);
+                printf(ANSI_COLOR_BOLD"\tRX:\t"ANSI_COLOR_RESET"%Lu%c\n",rx,metric);
+
 	}
 }
 
