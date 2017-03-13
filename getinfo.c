@@ -297,7 +297,7 @@ swap_t get_disk_bymnt(char *mntpoint){
 			//			printf("%d",strlen(fs->mnt_dir));
 			//printf("f_namelen: %ld\n", vfs.f_namelen);
 			disk.total = (vfs.f_blocks * vfs.f_bsize)/1024;
-			disk.used = (vfs.f_bfree * vfs.f_bsize)/1024;
+			disk.used = disk.total - ((vfs.f_bfree * vfs.f_bsize)/1024);
 			
 		}
 	}
