@@ -146,3 +146,36 @@ void ram_bar(ram_t ram, uint32_t cols){
 	printf("\n");
 }
 
+void storage_bar(swap_t ram, uint32_t cols){
+	printf(ANSI_COLOR_BOLD" DSK " ANSI_COLOR_RESET);
+	char unit = 'M';
+	uint32_t total = ram.total/1024;
+	uint32_t used = ram.used/1024;
+	
+	if (total > 1024){
+		total = total/1024;
+		used = used/1024;
+		unit = 'G';
+	}
+	
+	int ldigits = ndigits(total) + ndigits(used) +1 ;
+	float ramfull = ((float)used/(float)total);
+	float totalspace = (cols- 8.0 -ldigits);
+	
+	int usedr = totalspace*ramfull;
+	if (usedr==0) usedr = 1;
+	
+	float freer = totalspace - usedr;
+	
+	printf(ANSI_COLOR_OKGREEN);
+	if (ramfull > 0.7) printf(ANSI_COLOR_WARNING);
+	if (ramfull > 0.9) printf(ANSI_COLOR_FAIL);
+	fill(usedr);
+	printf(ANSI_COLOR_RESET);
+	empty(freer);
+
+	printf("%d/%d %c ",used,total,unit);
+	
+	printf("\n");
+}
+

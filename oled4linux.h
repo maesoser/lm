@@ -20,8 +20,10 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <ifaddrs.h>
+#include <sys/vfs.h>
+#include <mntent.h>	/* for getmntent(), et al. */
 
-#define DEFAULT_DELAY 5
+#define DEFAULT_DELAY 1
 #define SERIAL_SPEED B115200
 #define DEFAULT_PORT 7
 
@@ -109,6 +111,7 @@ void ip_bar(char *dev, char*dev2,struct in_addr addr,struct in_addr addr2,int ne
 void time_bar(struct tm* timeinfo,uptime_t upt,uint32_t cols);
 void swap_bar(swap_t swap, uint32_t cols);
 void cpu_bar(int cores, uint32_t *full,uint32_t *idle,uint32_t *lastfull,uint32_t *lastidle,uint32_t cols);
+void storage_bar(swap_t ram, uint32_t cols);
 
 uint32_t get_cpu(uint32_t *cpufull,uint32_t *cpuidle);
 float get_temp();
@@ -119,3 +122,4 @@ uptime_t get_uptime();
 ram_t get_ram();
 swap_t get_swap();
 int get_ifname(char *iface,int index);
+swap_t get_storage();

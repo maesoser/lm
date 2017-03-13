@@ -279,11 +279,15 @@ int main(int argc, char *argv[]){
 		swap_t swap = get_swap();
 		swap_bar(swap,w.ws_col);
 		
-		gettxrx(dev,&if1stats);
-		gettxrx(dev2,&if2stats);
+		swap_t mem = get_storage();
+		storage_bar(mem, w.ws_col);
 		
+		printf("\n");
+		gettxrx(dev,&if1stats);
+		gettxrx(dev2,&if2stats);		
 		ip_bar(dev,dev2,addr,addr2,ifaces,&if1stats,&if2stats,w.ws_col);
 		
+
 		}
 		sleep(laptime);
 	}
