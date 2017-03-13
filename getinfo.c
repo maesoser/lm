@@ -232,7 +232,7 @@ int get_ifname(char *iface,int index){
 	return count;
 }
 
-swap_t get_storage(){
+swap_t get_disk_byname(char *mntpoint){
 	
 	char *filename = "/etc/mtab";
 	FILE *fp;
@@ -249,7 +249,44 @@ swap_t get_storage(){
 		return disk;
 	}
 	while ((fs = getmntent(fp)) != NULL){
-		if (fs->mnt_dir[0] == '/' && strlen(fs->mnt_dir)==1){
+		 if(strcmp(fs->mnt_fsname, mntpoint)==0){
+			if (statfs(fs->mnt_dir, & vfs) != 0) {
+				printf(" %s: statfs failed: %s\n", fs->mnt_dir, strerror(errno));
+				return disk;
+			}
+			//printf("%s, mounted on %s:", fs->mnt_dir, fs->mnt_fsname);
+			//printf("\tf_bsize: %ld", vfs.f_blocks * vfs.f_bsize);
+			//printf("\tf_bfree: %ld\n", vfs.f_bfree * vfs.f_bsize);
+			//			printf("%d",strlen(fs->mnt_dir));
+			//printf("f_namelen: %ld\n", vfs.f_namelen);
+			disk.total = (vfs.f_blocks * vfs.f_bsize)/1024;
+			disk.used = (vfs.f_bfree * vfs.f_bsize)/1024;
+			
+		}
+	}
+
+	endmntent(fp);
+	return disk;
+}
+
+swap_t get_disk_bymnt(char *mntpoint){
+	
+	char *filename = "/etc/mtab";
+	FILE *fp;
+	struct mntent *fs;
+	struct statfs vfs;
+	
+	swap_t disk;
+	disk.total = 0;
+	disk.used = 0;
+
+	fp = setmntent(filename, "r");	/* read only */
+	if (fp == NULL) {
+		printf(" %s: could not open: %s\n", filename, strerror(errno));
+		return disk;
+	}
+	while ((fs = getmntent(fp)) != NULL){
+		 if(strcmp(fs->mnt_dir, mntpoint)==0){
 			if (statfs(fs->mnt_dir, & vfs) != 0) {
 				printf(" %s: statfs failed: %s\n", fs->mnt_dir, strerror(errno));
 				return disk;

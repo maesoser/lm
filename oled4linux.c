@@ -279,7 +279,7 @@ int main(int argc, char *argv[]){
 		swap_t swap = get_swap();
 		swap_bar(swap,w.ws_col);
 		
-		swap_t mem = get_storage();
+		swap_t mem = get_disk_bymnt("/");
 		storage_bar(mem, w.ws_col);
 		
 		printf("\n");

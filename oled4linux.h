@@ -122,4 +122,5 @@ uptime_t get_uptime();
 ram_t get_ram();
 swap_t get_swap();
 int get_ifname(char *iface,int index);
-swap_t get_storage();
+swap_t get_disk_byname(char *mntpoint);
+swap_t get_disk_bymnt(char *mntpoint);
