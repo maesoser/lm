@@ -81,8 +81,16 @@ void ip_bar(char *dev, char*dev2,struct in_addr addr,struct in_addr addr2,int if
 		empty(13 - addr2size(addr));
 		//cols = cols - 45 - ndigits(tx) - ndigits(rx);
 		//empty(cols);
+		
+		if(tx!=0)
+        printf(ANSI_COLOR_BOLD"\tTX:\t"ANSI_COLOR_RESET ANSI_COLOR_GREEN"%Lu%c" ANSI_COLOR_RESET,tx,metric);
+        else
+        printf(ANSI_COLOR_BOLD"\tTX:\t"ANSI_COLOR_RESET"%Lu%c",tx,metric);
+
+        if(rx!=0)
+        printf(ANSI_COLOR_BOLD"\tRX:\t"ANSI_COLOR_RESET ANSI_COLOR_GREEN"%Lu%c"ANSI_COLOR_RESET"\n",rx,metric);
+		else
 		printf(ANSI_COLOR_BOLD"\tTX:\t"ANSI_COLOR_RESET"%Lu%c",tx,metric);
-		printf(ANSI_COLOR_BOLD"\tRX:\t"ANSI_COLOR_RESET"%Lu%c\n",rx,metric);
 
 	}
 	if(ifaces>1){
@@ -105,9 +113,16 @@ void ip_bar(char *dev, char*dev2,struct in_addr addr,struct in_addr addr2,int if
 			metric = 'M';
 		}
 		empty(13 - addr2size(addr2));
-
+		
+		if(tx!=0)
+        printf(ANSI_COLOR_BOLD"\tTX:\t"ANSI_COLOR_RESET ANSI_COLOR_GREEN"%Lu%c" ANSI_COLOR_RESET,tx,metric);
+        else
         printf(ANSI_COLOR_BOLD"\tTX:\t"ANSI_COLOR_RESET"%Lu%c",tx,metric);
-        printf(ANSI_COLOR_BOLD"\tRX:\t"ANSI_COLOR_RESET"%Lu%c\n",rx,metric);
+
+        if(rx!=0)
+        printf(ANSI_COLOR_BOLD"\tRX:\t"ANSI_COLOR_RESET ANSI_COLOR_GREEN"%Lu%c"ANSI_COLOR_RESET"\n",rx,metric);
+		else
+		printf(ANSI_COLOR_BOLD"\tTX:\t"ANSI_COLOR_RESET"%Lu%c",tx,metric);
 
 	}
 }

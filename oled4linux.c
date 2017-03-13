@@ -96,7 +96,6 @@ void print_help(){
 	printf("\n oled4linux: Send monitorization info to an external oled screen via serial\n");
 		printf("\n OPTIONS:\n");
 		printf("\t -h \tPrint this help\n");
-		printf("\t -v \tShow debug on stdout\n");
 		printf("\t -t [TIME]\tSend time.\n");
 		printf("\t -s [SERIAL_PATH]\tSpecify a serial port to send the data\n");
 		printf("\t -n [port]\tSend data using udp to the specified port.\n");
@@ -107,21 +106,18 @@ void print_help(){
 }
 
 uint8_t ndigits(int n){
-		uint8_t count = 0;
-    while(n != 0)
-    {
-        // n = n/10
+	uint8_t count = 0;
+    while(n != 0){
         n /= 10;
         ++count;
     }
     if(count==0) count = 1; 
-		return count;
+	return count;
 }
 
 
 int main(int argc, char *argv[]){
 	unsigned int laptime = DEFAULT_DELAY;
-	uint8_t verbose = 0;
 	uint8_t outopt = 0;
 	uint32_t port = DEFAULT_PORT;
 	int opt;
@@ -146,6 +142,22 @@ int main(int argc, char *argv[]){
 	if2stats.lasttx = 0;
 	if2stats.lastrx = 0;
 	
+	int cores = 0;
+	
+	time_t rawtime;
+	struct tm * timeinfo;
+	
+	ram_t raminfo;
+	uptime_t upt;
+	
+	double load[3];
+	
+	struct in_addr addr = { 0 };
+	struct in_addr addr2 = { 0 };
+
+	swap_t swap;
+	swap_t mem;
+	
 	int i = 0;
 	for (i=0; i<64; ++i){   
 		cpufull[i] = 0;
@@ -153,7 +165,8 @@ int main(int argc, char *argv[]){
 		last_cpuidle[i] = 0;
 		last_cpufull[i] = 0;        
 	}
-	while ((opt = getopt(argc, argv, "s:t:n:hvc")) != -1) {
+	
+	while ((opt = getopt(argc, argv, "s:t:n:hc")) != -1) {
 		switch(opt) {
 			case 's':
 				outopt = OUTPUT_SERIAL;
@@ -164,9 +177,6 @@ int main(int argc, char *argv[]){
 				break;
 			case 'h':
 				print_help();
-				break;
-			case 'v':
-				verbose = 1;
 				break;
 			case 'n':
 				outopt= OUTPUT_NETWORK;
@@ -189,45 +199,37 @@ int main(int argc, char *argv[]){
 
 	}
 
-	//char buf [100];
-	//int n = read (fd, buf, sizeof buf);  // read up to 100 characters if ready to read
 	while(1){
 
-		ram_t raminfo = get_ram();
-		uptime_t upt = get_uptime();
+		raminfo = get_ram();
+		upt = get_uptime();
 
-		double load[3];
 		if (getloadavg(load, 3) == -1){
 			load[0] = 0;
 			load[1] = 0;
 			load[2] = 0;
 		}
 
-		time_t rawtime;
-		struct tm * timeinfo;
 		time(&rawtime);
 		timeinfo = localtime(&rawtime);
 
-		struct in_addr addr = { 0 };
 		int ifaces = get_ifname(dev,1);
 		addr = get_addr(dev);
 
-		struct in_addr addr2 = { 0 };
 		if (ifaces > 1){
 				get_ifname(dev2,2);
 				addr2 = get_addr(dev2);
 		}
+		gettxrx(dev,&if1stats);
+		gettxrx(dev2,&if2stats);
 		
-		if(verbose){
-			printf("%02d-%02d-%04d ",timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
-			printf("%02d:%02d:%02d\t", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-			printf("%d days %02d hrs %02d mins %02d secs\t",upt.days, upt.hours, upt.mins, upt.secs);
-			printf("RAM %d/%d MB\t",raminfo.used/1024,raminfo.total/1024);
-			printf("LOAD %0.2f %0.2f %0.2f\t",load[0],load[1],load[2]);
-			printf(" %s\t",inet_ntoa(addr));
-			printf(" %lu\n",sizeof(serial_pkt));
+		swap = get_swap();
+		mem = get_disk_bymnt("/");
 
-		}
+		memcpy(last_cpufull, cpufull, sizeof(cpufull));
+		memcpy(last_cpuidle, cpuidle, sizeof(cpuidle));
+		cores = get_cpu(cpufull,cpuidle);
+				
 		if(outopt == OUTPUT_SERIAL){
 			serial_pkt serialbuff;
 			serialbuff.ramtotal = raminfo.total/1024;
@@ -268,23 +270,15 @@ int main(int argc, char *argv[]){
 		clearscr();
 		time_bar(timeinfo,upt,w.ws_col);
 		status_bar(load,w.ws_col);
-		
-		memcpy(last_cpufull, cpufull, sizeof(cpufull));
-		memcpy(last_cpuidle, cpuidle, sizeof(cpuidle));
-		int cores = get_cpu(cpufull,cpuidle);
-		
+				
 		cpu_bar(cores,cpufull,cpuidle,last_cpufull,last_cpuidle,w.ws_col);
 		
 		ram_bar(raminfo,w.ws_col);
-		swap_t swap = get_swap();
 		swap_bar(swap,w.ws_col);
 		
-		swap_t mem = get_disk_bymnt("/");
 		storage_bar(mem, w.ws_col);
 		
 		printf("\n");
-		gettxrx(dev,&if1stats);
-		gettxrx(dev2,&if2stats);		
 		ip_bar(dev,dev2,addr,addr2,ifaces,&if1stats,&if2stats,w.ws_col);
 		
 
