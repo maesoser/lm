@@ -22,10 +22,31 @@ void clearscr(){
 }
 
 void fill(int n){
+	int mode = 5;
 	int i = 0;
 	for(i=0; i < n; i++){
-		printf("█");
-		//printf("|");
+		switch(mode){
+			case 0:
+				printf("|");
+				break;
+			case 1:
+				printf("░");
+				break;
+			case 2:
+				printf("▒");
+				break;
+			case 3:
+				printf("▓");
+				break;
+			case 4:
+				printf("█");
+				break;
+			case 5:
+				printf("■");
+				break;
+
+		}
+
 	}
 }
 
@@ -166,6 +187,8 @@ int main(int argc, char *argv[]){
 		last_cpufull[i] = 0;        
 	}
 	
+	int ifaces = 0;
+	
 	while ((opt = getopt(argc, argv, "s:t:n:hc")) != -1) {
 		switch(opt) {
 			case 's':
@@ -198,7 +221,7 @@ int main(int argc, char *argv[]){
 	if (outopt == OUTPUT_NETWORK){
 
 	}
-
+	int n = 0;
 	while(1){
 
 		raminfo = get_ram();
@@ -213,18 +236,24 @@ int main(int argc, char *argv[]){
 		time(&rawtime);
 		timeinfo = localtime(&rawtime);
 
-		int ifaces = get_ifname(dev,1);
-		addr = get_addr(dev);
+		if(n%10==0){
+			ifaces = get_ifname(dev,1);
+			addr = get_addr(dev);
 
-		if (ifaces > 1){
-				get_ifname(dev2,2);
-				addr2 = get_addr(dev2);
+			if (ifaces > 1){
+					get_ifname(dev2,2);
+					addr2 = get_addr(dev2);
+			}
+			
+			mem = get_disk_bymnt("/");
+		}
+		if(n%2){
+			swap = get_swap();
 		}
 		gettxrx(dev,&if1stats);
 		gettxrx(dev2,&if2stats);
 		
-		swap = get_swap();
-		mem = get_disk_bymnt("/");
+		
 
 		memcpy(last_cpufull, cpufull, sizeof(cpufull));
 		memcpy(last_cpuidle, cpuidle, sizeof(cpuidle));
@@ -283,6 +312,8 @@ int main(int argc, char *argv[]){
 		
 
 		}
+		n ++;
+		if (n==101) n = 0;
 		sleep(laptime);
 	}
 	return 0;

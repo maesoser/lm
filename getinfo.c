@@ -305,3 +305,8 @@ swap_t get_disk_bymnt(char *mntpoint){
 	endmntent(fp);
 	return disk;
 }
+
+proc_t getprocs(){
+	proc_t procs;
+	return procs;
+}

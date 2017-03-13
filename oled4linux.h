@@ -94,6 +94,12 @@ typedef struct{
 	uint8_t ip[4];
 }serial_pkt;	//64 bytes
 
+typedef struct{
+	char proc1[32];
+	char proc2[32];
+	char proc3[32];
+}proc_t;
+
 
 uint8_t * addr2arr(struct in_addr ipadrr);
 void clearscr();
@@ -124,3 +130,4 @@ swap_t get_swap();
 int get_ifname(char *iface,int index);
 swap_t get_disk_byname(char *mntpoint);
 swap_t get_disk_bymnt(char *mntpoint);
+proc_t get_procs();
