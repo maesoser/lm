@@ -1,4 +1,4 @@
-#include "oled4linux.h"
+#include "lm.h"
 
 
 uint8_t * addr2arr(struct in_addr ipadrr){
@@ -22,7 +22,7 @@ void clearscr(){
 }
 
 void fill(int n){
-	int mode = 5;
+	int mode = 3;
 	int i = 0;
 	for(i=0; i < n; i++){
 		switch(mode){
@@ -132,7 +132,7 @@ uint8_t ndigits(int n){
         n /= 10;
         ++count;
     }
-    if(count==0) count = 1; 
+    if(count==0) count = 1;
 	return count;
 }
 
@@ -146,7 +146,7 @@ int main(int argc, char *argv[]){
 	char dev2[32];
 	char *serialpath;
 	int fd;
-	
+
 	uint32_t cpufull[64];
 	uint32_t cpuidle[64];
 	uint32_t last_cpufull[64];
@@ -162,33 +162,33 @@ int main(int argc, char *argv[]){
 	if2stats.rx = 0;
 	if2stats.lasttx = 0;
 	if2stats.lastrx = 0;
-	
+
 	int cores = 0;
-	
+
 	time_t rawtime;
 	struct tm * timeinfo;
-	
+
 	ram_t raminfo;
 	uptime_t upt;
-	
+
 	double load[3];
-	
+
 	struct in_addr addr = { 0 };
 	struct in_addr addr2 = { 0 };
 
 	swap_t swap;
 	swap_t mem;
-	
+
 	int i = 0;
-	for (i=0; i<64; ++i){   
+	for (i=0; i<64; ++i){
 		cpufull[i] = 0;
 		cpuidle[i] = 0;
 		last_cpuidle[i] = 0;
-		last_cpufull[i] = 0;        
+		last_cpufull[i] = 0;
 	}
-	
+
 	int ifaces = 0;
-	
+
 	while ((opt = getopt(argc, argv, "s:t:n:hc")) != -1) {
 		switch(opt) {
 			case 's':
@@ -244,7 +244,7 @@ int main(int argc, char *argv[]){
 					get_ifname(dev2,2);
 					addr2 = get_addr(dev2);
 			}
-			
+
 			mem = get_disk_bymnt("/");
 		}
 		if(n%2){
@@ -252,13 +252,13 @@ int main(int argc, char *argv[]){
 		}
 		gettxrx(dev,&if1stats);
 		gettxrx(dev2,&if2stats);
-		
-		
+
+
 
 		memcpy(last_cpufull, cpufull, sizeof(cpufull));
 		memcpy(last_cpuidle, cpuidle, sizeof(cpuidle));
 		cores = get_cpu(cpufull,cpuidle);
-				
+
 		if(outopt == OUTPUT_SERIAL){
 			serial_pkt serialbuff;
 			serialbuff.ramtotal = raminfo.total/1024;
@@ -299,17 +299,17 @@ int main(int argc, char *argv[]){
 		clearscr();
 		time_bar(timeinfo,upt,w.ws_col);
 		status_bar(load,w.ws_col);
-				
+
 		cpu_bar(cores,cpufull,cpuidle,last_cpufull,last_cpuidle,w.ws_col);
-		
+
 		ram_bar(raminfo,w.ws_col);
 		swap_bar(swap,w.ws_col);
-		
+
 		storage_bar(mem, w.ws_col);
-		
+
 		printf("\n");
 		ip_bar(dev,dev2,addr,addr2,ifaces,&if1stats,&if2stats,w.ws_col);
-		
+
 
 		}
 		n ++;

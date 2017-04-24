@@ -1,4 +1,4 @@
-#include "oled4linux.h"
+#include "lm.h"
 
 
 uint32_t get_cpu(uint32_t *cpufull,uint32_t *cpuidle){
@@ -16,18 +16,18 @@ uint32_t get_cpu(uint32_t *cpufull,uint32_t *cpuidle){
 		 uint32_t cpuid;
 		 //     user    nice   system  idle  iowait irq   softirq  steal  guest  guest_nice
 		 if(sscanf(buff, "cpu%d %d	%d	%d	%d	%d	%d	%d	%d	%d	%d\n",
-			 &cpuid,&val[0],&val[1],&val[2],&val[3],&val[4],&val[5],&val[6],&val[7],&val[8],&val[9])){						 
-					//int usertime = val[0] - val[8];                    
-					//int nicetime = val[1] - val[9];                 
-					int idlealltime = val[3] + val[4];                
+			 &cpuid,&val[0],&val[1],&val[2],&val[3],&val[4],&val[5],&val[6],&val[7],&val[8],&val[9])){
+					//int usertime = val[0] - val[8];
+					//int nicetime = val[1] - val[9];
+					int idlealltime = val[3] + val[4];
 					//int systemalltime = val[2] + val[5] + vak[4];
 					//int virtalltime = val[8] + val[9];
-					
+
 					cpufull[cores] = val[0]+
 						val[1]+val[2]+val[3]+val[4]+
 						val[5]+val[6]+val[7]+val[0]+val[9];
 
-					cpuidle[cores] = idlealltime;									
+					cpuidle[cores] = idlealltime;
 					 cores = cores + 1;
 					 val[0] = 0;
 					 val[1] = 0;
@@ -38,7 +38,7 @@ uint32_t get_cpu(uint32_t *cpufull,uint32_t *cpuidle){
 					 val[6] = 0;
 					 val[7] = 0;
 					 val[8] = 0;
-					 val[9] = 0;					 
+					 val[9] = 0;
 			 	}
 
 	 }
@@ -80,9 +80,9 @@ void gettxrx(char *dev, txrx_t *if1){
 		 long long tx = 0;
 		 long long rx = 0;
 		 char ifname[32];
-		 sscanf( buff," %[^:]: %Lu %*u %*u %*u %*u %*u %*u %*u %Lu %*u %*u %*u %*u %*u %*u %*u",ifname, &rx, &tx );				 
+		 sscanf( buff," %[^:]: %Lu %*u %*u %*u %*u %*u %*u %*u %Lu %*u %*u %*u %*u %*u %*u %*u",ifname, &rx, &tx );
 			if(strstr(ifname,dev)!=NULL){
-				//printf("%s %Lu %Lu tx/rx\n",ifname ,tx,rx); 
+				//printf("%s %Lu %Lu tx/rx\n",ifname ,tx,rx);
 				if1->lasttx = if1->tx;
 				if1->lastrx = if1->rx;
 				if1->tx = tx;
@@ -91,7 +91,7 @@ void gettxrx(char *dev, txrx_t *if1){
 	 }
 	 if(fclose(netinfo) != 0){
 		 exit(-1);
-	 }	 
+	 }
 }
 
 struct in_addr get_addr(char *dev){
@@ -223,8 +223,12 @@ int get_ifname(char *iface,int index){
 	int count = 0;
 	while(tmp){
 		if(tmp->ifa_addr && tmp->ifa_addr->sa_family == AF_PACKET){
-			if(count==index)strcpy(iface,tmp->ifa_name);
+			if(count==index){
+				strcpy(iface,tmp->ifa_name);
+			}
 			count ++;
+			//printf("[%s] %d\n",tmp->ifa_name,strlen(tmp->ifa_name));
+			//if(strlen(tmp->ifa_name) > 0)
 		}
 		tmp = tmp->ifa_next;
 	}
@@ -233,12 +237,12 @@ int get_ifname(char *iface,int index){
 }
 
 swap_t get_disk_byname(char *mntpoint){
-	
+
 	char *filename = "/etc/mtab";
 	FILE *fp;
 	struct mntent *fs;
 	struct statfs vfs;
-	
+
 	swap_t disk;
 	disk.total = 0;
 	disk.used = 0;
@@ -261,7 +265,7 @@ swap_t get_disk_byname(char *mntpoint){
 			//printf("f_namelen: %ld\n", vfs.f_namelen);
 			disk.total = (vfs.f_blocks * vfs.f_bsize)/1024;
 			disk.used = disk.total - ((vfs.f_bfree * vfs.f_bsize)/1024);
-			
+
 		}
 	}
 
@@ -270,12 +274,12 @@ swap_t get_disk_byname(char *mntpoint){
 }
 
 swap_t get_disk_bymnt(char *mntpoint){
-	
+
 	char *filename = "/etc/mtab";
 	FILE *fp;
 	struct mntent *fs;
 	struct statfs vfs;
-	
+
 	swap_t disk;
 	disk.total = 0;
 	disk.used = 0;
@@ -298,7 +302,7 @@ swap_t get_disk_bymnt(char *mntpoint){
 			//printf("f_namelen: %ld\n", vfs.f_namelen);
 			disk.total = (vfs.f_blocks * vfs.f_bsize)/1024;
 			disk.used = disk.total - ((vfs.f_bfree * vfs.f_bsize)/1024);
-			
+
 		}
 	}
 

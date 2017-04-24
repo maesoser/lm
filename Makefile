@@ -2,14 +2,14 @@ CC = gcc
 CFLAGS += -Wall
 PREFIX ?= /usr/local
 
-all: o4l
+all: lm
 
-o4l:
-	$(CC) $(CFLAGS) *.c -o o4l
+lm:
+	$(CC) $(CFLAGS) *.c -o lm
 
 install: o4l
 	install -d $(PREFIX)/bin
-	install -m755 o4l $(PREFIX)/bin/o4l
+	install -m755 lm $(PREFIX)/bin/lm
 
 clean:
-	rm -f o4l
+	rm -f lm
